@@ -12,7 +12,7 @@ type Claims struct {
 }
 
 func GenerateJWT(userID uint, secret string) (string, error) {
-	expirationTime := time.Now().Add(24 * time.Hour)
+	expirationTime := time.Now().Add(10 * time.Hour)
 	claims := &Claims{
 		UserID: userID,
 		StandardClaims: jwt.StandardClaims{

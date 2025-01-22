@@ -1,7 +1,6 @@
-package main
+package config
 
 import (
-	"Forum_BE/config"
 	"Forum_BE/infrastructure"
 	"Forum_BE/models"
 	"Forum_BE/repositories"
@@ -10,9 +9,9 @@ import (
 	"log"
 )
 
-func main() {
+func InitPermissions(permissions *[]models.Permission) {
 	// Load configuration
-	cfg := config.LoadConfig()
+	cfg := LoadConfig()
 	fmt.Println(cfg.DBDSN)
 	// Connect to MySQL
 	db, err := infrastructure.ConnectMySQL(cfg.DBDSN)
@@ -43,7 +42,7 @@ func main() {
 	permissionService := services.NewPermissionService(permissionRepo, userRepo)
 
 	// Define initial permissions
-	permissions := []models.Permission{
+	*permissions = []models.Permission{
 		// Root Permissions
 		{Role: models.RoleRoot, Resource: "user", Action: "create", Allowed: true},
 		{Role: models.RoleRoot, Resource: "user", Action: "view", Allowed: true},
@@ -55,6 +54,15 @@ func main() {
 		{Role: models.RoleRoot, Resource: "question", Action: "delete", Allowed: true},
 		{Role: models.RoleRoot, Resource: "question", Action: "approve", Allowed: true},
 		{Role: models.RoleRoot, Resource: "question", Action: "reject", Allowed: true},
+		{Role: models.RoleRoot, Resource: "group", Action: "create", Allowed: true},
+		{Role: models.RoleRoot, Resource: "group", Action: "view", Allowed: true},
+		{Role: models.RoleRoot, Resource: "group", Action: "edit", Allowed: true},
+		{Role: models.RoleRoot, Resource: "group", Action: "delete", Allowed: true},
+		{Role: models.RoleRoot, Resource: "vote", Action: "create", Allowed: true},
+		{Role: models.RoleRoot, Resource: "vote", Action: "view", Allowed: true},
+		{Role: models.RoleRoot, Resource: "vote", Action: "edit", Allowed: true},
+		{Role: models.RoleRoot, Resource: "vote", Action: "delete", Allowed: true},
+
 		// Admin Permissions
 		{Role: models.RoleAdmin, Resource: "user", Action: "create", Allowed: true},
 		{Role: models.RoleAdmin, Resource: "user", Action: "view", Allowed: true},
@@ -84,7 +92,7 @@ func main() {
 		{Role: models.RoleUser, Resource: "follow", Action: "view", Allowed: true},
 	}
 
-	for _, perm := range permissions {
+	for _, perm := range *permissions {
 		existingPerm, err := permissionService.GetPermission(string(perm.Role), perm.Resource, perm.Action)
 		if err == nil && existingPerm != nil {
 			continue // Permission đã tồn tại
@@ -97,6 +105,5 @@ func main() {
 			log.Printf("Created permission: %+v", perm)
 		}
 	}
-
 	log.Println("Permissions initialized successfully")
 }

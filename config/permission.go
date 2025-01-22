@@ -16,6 +16,8 @@ var RolePermissions = map[models.Role][]Permissions{
 		{Resource: "question", Action: "create", Allowed: true},
 		{Resource: "question", Action: "edit", Allowed: true},
 		{Resource: "question", Action: "delete", Allowed: true},
+		{Resource: "groups", Action: "create", Allowed: true},
+
 		// Thêm các quyền khác cho root
 	},
 	models.RoleAdmin: {
@@ -25,6 +27,8 @@ var RolePermissions = map[models.Role][]Permissions{
 		{Resource: "question", Action: "create", Allowed: true},
 		{Resource: "question", Action: "edit", Allowed: true},
 		{Resource: "question", Action: "delete", Allowed: true},
+		{Resource: "groups", Action: "create", Allowed: true},
+
 		// Thêm các quyền khác cho admin
 	},
 	models.RoleEmployee: {

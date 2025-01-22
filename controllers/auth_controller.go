@@ -1,10 +1,13 @@
 package controllers
 
 import (
+	"Forum_BE/config"
 	"Forum_BE/responses"
 	"Forum_BE/services"
+	"Forum_BE/utils"
 	"github.com/gin-gonic/gin"
 	"net/http"
+	"strings"
 )
 
 type AuthController struct {
@@ -43,7 +46,7 @@ func (ac *AuthController) Register(c *gin.Context) {
 // Login xử lý yêu cầu đăng nhập
 func (ac *AuthController) Login(c *gin.Context) {
 	var req struct {
-		Username string `json:"username" binding:"required"`
+		Email    string `json:"email" binding:"required"`
 		Password string `json:"password" binding:"required"`
 	}
 
@@ -52,7 +55,7 @@ func (ac *AuthController) Login(c *gin.Context) {
 		return
 	}
 
-	token, err := ac.authService.Login(req.Username, req.Password)
+	token, user, err := ac.authService.Login(req.Email, req.Password)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
@@ -61,5 +64,33 @@ func (ac *AuthController) Login(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Login successful",
 		"token":   token,
+		"user":    user,
 	})
+}
+func (ac *AuthController) ResetToken(c *gin.Context) {
+	// Trích xuất token từ header Authorization
+
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header missing"})
+		return
+	}
+
+	tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+	claims, err := utils.ParseJWT(tokenString, config.LoadConfig().JWTSecret)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+		return
+	}
+
+	userID := claims.UserID // Giả sử bạn đã lưu userID trong claims
+
+	// Reset token
+	newToken, err := ac.authService.ResetToken(userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to reset token"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"token": newToken})
 }

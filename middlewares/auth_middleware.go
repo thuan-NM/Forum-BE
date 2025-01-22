@@ -26,11 +26,14 @@ func AuthMiddleware(jwtSecret string) gin.HandlerFunc {
 		tokenStr := parts[1]
 		claims, err := utils.ParseJWT(tokenStr, jwtSecret)
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+			if strings.Contains(err.Error(), "token is expired") { // Kiểm tra lỗi hết hạn
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "Token has expired", "code": "ex"})
+			} else {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+			}
 			c.Abort()
 			return
 		}
-
 		// Thêm user_id vào context
 		c.Set("user_id", claims.UserID)
 

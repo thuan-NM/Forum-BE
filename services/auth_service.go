@@ -8,7 +8,8 @@ import (
 
 type AuthService interface {
 	Register(username, email, password string) (*models.User, error)
-	Login(username, password string) (string, error) // Trả về JWT token
+	Login(email, password string) (string, *models.User, error) // Trả về JWT token và user
+	ResetToken(userID uint) (string, error)                     // Reset token mới
 }
 
 type authService struct {
@@ -24,20 +25,27 @@ func (s *authService) Register(username, email, password string) (*models.User, 
 	return s.userService.CreateUser(username, email, password)
 }
 
-func (s *authService) Login(username, password string) (string, error) {
-	user, err := s.userService.GetUserByUsername(username)
+func (s *authService) Login(email, password string) (string, *models.User, error) {
+	user, err := s.userService.GetUserByEmail(email)
 	if err != nil {
-		return "", errors.New("invalid username or password")
+		return "", nil, errors.New("Invalid email or password")
 	}
 
 	if !utils.CheckPasswordHash(password, user.Password) {
-		return "", errors.New("invalid username or password")
+		return "", nil, errors.New("Invalid email or password")
 	}
 
 	token, err := utils.GenerateJWT(user.ID, s.jwtSecret)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
+	return token, user, nil
+}
+func (s *authService) ResetToken(userID uint) (string, error) {
+	token, err := utils.GenerateJWT(userID, s.jwtSecret)
+	if err != nil {
+		return "", err
+	}
 	return token, nil
 }

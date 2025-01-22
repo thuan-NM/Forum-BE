@@ -22,11 +22,11 @@ func NewAdminService(qRepo repositories.QuestionRepository) AdminService {
 func (s *adminService) ApproveQuestion(questionID uint) error {
 	question, err := s.questionRepo.GetQuestionByID(questionID)
 	if err != nil {
-		return errors.New("question not found")
+		return errors.New("Question not found")
 	}
 
 	if question.Status != models.StatusPending {
-		return errors.New("question is not pending approval")
+		return errors.New("Question is not pending approval")
 	}
 
 	question.Status = models.StatusApproved
@@ -36,11 +36,11 @@ func (s *adminService) ApproveQuestion(questionID uint) error {
 func (s *adminService) RejectQuestion(questionID uint) error {
 	question, err := s.questionRepo.GetQuestionByID(questionID)
 	if err != nil {
-		return errors.New("question not found")
+		return errors.New("Question not found")
 	}
 
 	if question.Status != models.StatusPending {
-		return errors.New("question is not pending approval")
+		return errors.New("Question is not pending approval")
 	}
 
 	question.Status = models.StatusRejected
