@@ -4,11 +4,13 @@ import (
 	"Forum_BE/config"
 	"Forum_BE/infrastructure"
 	"Forum_BE/models"
+
+	//"Forum_BE/models"
 	"Forum_BE/routes"
+	"log"
+
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"log"
-	"time"
 )
 
 func main() {
@@ -21,18 +23,19 @@ func main() {
 		log.Fatal("Failed to connect to database:", err)
 	}
 
-	// Auto migrate models
-	err = db.AutoMigrate(
-		&models.User{},
-		&models.Permission{},
-		&models.Question{},
-		&models.Answer{},
-		&models.Comment{},
-		&models.Vote{},
-		&models.Tag{},
-		&models.Follow{},
-		&models.Group{},
-	)
+	//Auto migrate models
+	//err = db.AutoMigrate(
+	//	&models.User{},
+	//	&models.Permission{},
+	//	&models.Question{},
+	//	&models.Answer{},
+	//	&models.Comment{},
+	//	&models.Vote{},
+	//	&models.Tag{},
+	//	&models.Follow{},
+	//	&models.Group{},
+	//	&models.Post{},
+	//)
 	if err != nil {
 		log.Fatal("Failed to migrate database:", err)
 	}
@@ -52,7 +55,6 @@ func main() {
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
-		MaxAge:           12 * time.Hour,
 	}))
 
 	// Sau đó mới setup routes

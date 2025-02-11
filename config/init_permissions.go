@@ -62,7 +62,12 @@ func InitPermissions(permissions *[]models.Permission) {
 		{Role: models.RoleRoot, Resource: "vote", Action: "view", Allowed: true},
 		{Role: models.RoleRoot, Resource: "vote", Action: "edit", Allowed: true},
 		{Role: models.RoleRoot, Resource: "vote", Action: "delete", Allowed: true},
-
+		{Role: models.RoleRoot, Resource: "post", Action: "create", Allowed: true},
+		{Role: models.RoleRoot, Resource: "post", Action: "view", Allowed: true},
+		{Role: models.RoleRoot, Resource: "post", Action: "edit", Allowed: true},
+		{Role: models.RoleRoot, Resource: "post", Action: "delete", Allowed: true},
+		{Role: models.RoleRoot, Resource: "permission", Action: "edit", Allowed: true},
+		{Role: models.RoleRoot, Resource: "permission", Action: "view", Allowed: true},
 		// Admin Permissions
 		{Role: models.RoleAdmin, Resource: "user", Action: "create", Allowed: true},
 		{Role: models.RoleAdmin, Resource: "user", Action: "view", Allowed: true},
@@ -74,6 +79,8 @@ func InitPermissions(permissions *[]models.Permission) {
 		{Role: models.RoleAdmin, Resource: "question", Action: "delete", Allowed: true},
 		{Role: models.RoleAdmin, Resource: "question", Action: "approve", Allowed: true},
 		{Role: models.RoleAdmin, Resource: "question", Action: "reject", Allowed: true},
+		{Role: models.RoleAdmin, Resource: "permission", Action: "edit", Allowed: true},
+		{Role: models.RoleAdmin, Resource: "permission", Action: "view", Allowed: true},
 		// Employee Permissions
 		{Role: models.RoleEmployee, Resource: "question", Action: "create", Allowed: true},
 		{Role: models.RoleEmployee, Resource: "question", Action: "view", Allowed: true},
