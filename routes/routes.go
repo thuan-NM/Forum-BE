@@ -40,6 +40,7 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, jwtSecret string) {
 	{
 		UserRoutes(db, authorized, permService)
 		QuestionRoutes(db, authorized, permService)
+		PostRoutes(db, authorized, permService)
 		AnswerRoutes(db, authorized, permService)
 		CommentRoutes(db, authorized, permService)
 		TagRoutes(db, authorized, permService)
