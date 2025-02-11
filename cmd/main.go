@@ -3,7 +3,6 @@ package main
 import (
 	"Forum_BE/config"
 	"Forum_BE/infrastructure"
-	"Forum_BE/models"
 
 	//"Forum_BE/models"
 	"Forum_BE/routes"
