@@ -24,6 +24,6 @@ type Post struct {
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 
-	User  User  `json:"user,omitempty"`
-	Group Group `json:"group,omitempty"`
+	User  User  `gorm:"foreignKey:UserID" json:"user,omitempty"`
+	Group Group `gorm:"foreignKey:GroupID" json:"group,omitempty"`
 }
