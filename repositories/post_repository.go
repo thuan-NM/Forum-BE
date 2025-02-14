@@ -29,9 +29,7 @@ func (r *postRepository) GetPostByID(id uint) (*models.Post, error) {
 	var post models.Post
 	if err := r.db.
 		Preload("User").
-		Preload("Comments").
 		Preload("Group").
-		Preload("Tags").
 		First(&post, id).Error; err != nil {
 		return nil, err
 	}
@@ -59,9 +57,7 @@ func (r *postRepository) List(filters map[string]interface{}) ([]models.Post, er
 
 	if err := dbQuery.
 		Preload("User").
-		Preload("Comments").
 		Preload("Group").
-		Preload("Tags").
 		Find(&posts).Error; err != nil {
 		return nil, err
 	}
