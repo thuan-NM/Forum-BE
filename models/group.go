@@ -15,5 +15,5 @@ type Group struct {
 	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
 
 	// Relationships
-	Questions []Question `json:"questions,omitempty"`
+	Post []Post `json:"post,omitempty"`
 }

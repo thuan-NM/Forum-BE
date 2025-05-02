@@ -7,10 +7,9 @@ import (
 )
 
 type FollowService interface {
-	FollowUser(followerID, followingID uint) (*models.Follow, error)
-	UnfollowUser(followerID, followingID uint) error
-	GetFollowers(userID uint) ([]models.Follow, error)
-	GetFollowing(userID uint) ([]models.Follow, error)
+	FollowQuestion(userID, questionID uint) error
+	UnfollowQuestion(userID, questionID uint) error
+	GetFollowsByQuestionID(questionID uint) ([]models.Follow, error)
 }
 
 type followService struct {
@@ -21,43 +20,33 @@ func NewFollowService(fRepo repositories.FollowRepository) FollowService {
 	return &followService{followRepo: fRepo}
 }
 
-func (s *followService) FollowUser(followerID, followingID uint) (*models.Follow, error) {
-	if followerID == followingID {
-		return nil, errors.New("cannot follow yourself")
+func (s *followService) FollowQuestion(userID, questionID uint) error {
+	// Check if already followed
+	follows, err := s.followRepo.GetFollowsByQuestionID(questionID)
+	if err != nil {
+		return err
 	}
-
-	// Kiểm tra xem đã theo dõi chưa
-	existingFollow, err := s.followRepo.GetFollow(followerID, followingID)
-	if err == nil && existingFollow != nil {
-		return nil, errors.New("already following this user")
+	for _, f := range follows {
+		if f.UserID == userID {
+			return errors.New("user already follows this question")
+		}
 	}
 
 	follow := &models.Follow{
-		FollowerID:  followerID,
-		FollowingID: followingID,
+		UserID:     userID,
+		QuestionID: questionID,
 	}
+	return s.followRepo.CreateFollow(follow)
+}
 
-	if err := s.followRepo.CreateFollow(follow); err != nil {
+func (s *followService) UnfollowQuestion(userID, questionID uint) error {
+	return s.followRepo.DeleteFollow(userID, questionID)
+}
+func (s *followService) GetFollowsByQuestionID(questionID uint) ([]models.Follow, error) {
+	var follows []models.Follow
+	follows, err := s.followRepo.GetFollowsByQuestionID(questionID)
+	if err != nil {
 		return nil, err
 	}
-
-	return follow, nil
-}
-
-func (s *followService) UnfollowUser(followerID, followingID uint) error {
-	// Kiểm tra xem đã theo dõi chưa
-	existingFollow, err := s.followRepo.GetFollow(followerID, followingID)
-	if err != nil || existingFollow == nil {
-		return errors.New("follow relationship does not exist")
-	}
-
-	return s.followRepo.DeleteFollow(followerID, followingID)
-}
-
-func (s *followService) GetFollowers(userID uint) ([]models.Follow, error) {
-	return s.followRepo.ListFollowers(userID)
-}
-
-func (s *followService) GetFollowing(userID uint) ([]models.Follow, error) {
-	return s.followRepo.ListFollowing(userID)
+	return follows, nil
 }
