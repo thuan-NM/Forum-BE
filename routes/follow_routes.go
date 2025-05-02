@@ -17,9 +17,9 @@ func FollowRoutes(db *gorm.DB, authorized *gin.RouterGroup, permService services
 
 	follows := authorized.Group("/follows")
 	{
-		follows.POST("/", middlewares.CheckPermission(permService, "follow", "create"), followController.FollowUser)
-		follows.DELETE("/:following_id", middlewares.CheckPermission(permService, "follow", "delete"), followController.UnfollowUser)
-		follows.GET("/followers/:user_id", middlewares.CheckPermission(permService, "follow", "view"), followController.GetFollowers)
-		follows.GET("/following/:user_id", middlewares.CheckPermission(permService, "follow", "view"), followController.GetFollowing)
+		follows.GET("/:id/follow-status", middlewares.CheckPermission(permService, "follow", "view"), followController.CheckFollowStatus)
+		follows.GET("/:id/followers", middlewares.CheckPermission(permService, "follow", "view"), followController.GetFollowers)
+		follows.PUT("/:id/follow", middlewares.CheckPermission(permService, "follow", "create"), followController.FollowQuestion)
+		follows.DELETE("/:id/unfollow", middlewares.CheckPermission(permService, "follow", "delete"), followController.UnfollowQuestion)
 	}
 }

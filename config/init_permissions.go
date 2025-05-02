@@ -31,6 +31,7 @@ func InitPermissions(permissions *[]models.Permission) {
 		&models.Follow{},
 		&models.Group{},
 		&models.QuestionTag{},
+		&models.PassedQuestion{},
 	)
 	if err != nil {
 		log.Fatal("Failed to migrate database:", err)
@@ -66,6 +67,16 @@ func InitPermissions(permissions *[]models.Permission) {
 		{Role: models.RoleRoot, Resource: "post", Action: "view", Allowed: true},
 		{Role: models.RoleRoot, Resource: "post", Action: "edit", Allowed: true},
 		{Role: models.RoleRoot, Resource: "post", Action: "delete", Allowed: true},
+		{Role: models.RoleRoot, Resource: "follow", Action: "create", Allowed: true},
+		{Role: models.RoleRoot, Resource: "follow", Action: "view", Allowed: true},
+		{Role: models.RoleRoot, Resource: "follow", Action: "delete", Allowed: true},
+		{Role: models.RoleRoot, Resource: "pass", Action: "create", Allowed: true},
+		{Role: models.RoleRoot, Resource: "pass", Action: "view", Allowed: true},
+		{Role: models.RoleRoot, Resource: "pass", Action: "delete", Allowed: true},
+		{Role: models.RoleRoot, Resource: "answer", Action: "create", Allowed: true},
+		{Role: models.RoleRoot, Resource: "answer", Action: "view", Allowed: true},
+		{Role: models.RoleRoot, Resource: "answer", Action: "edit", Allowed: true},
+		{Role: models.RoleRoot, Resource: "answer", Action: "delete", Allowed: true},
 		{Role: models.RoleRoot, Resource: "permission", Action: "edit", Allowed: true},
 		{Role: models.RoleRoot, Resource: "permission", Action: "view", Allowed: true},
 		// Admin Permissions

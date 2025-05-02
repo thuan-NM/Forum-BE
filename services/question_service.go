@@ -7,9 +7,9 @@ import (
 )
 
 type QuestionService interface {
-	CreateQuestion(title, content string, userID uint, groupID uint) (*models.Question, error)
+	CreateQuestion(title string, userID uint) (*models.Question, error)
 	GetQuestionByID(id uint) (*models.Question, error)
-	UpdateQuestion(id uint, title, content string, groupID uint) (*models.Question, error)
+	UpdateQuestion(id uint, title string) (*models.Question, error)
 	DeleteQuestion(id uint) error
 	ListQuestions(filters map[string]interface{}) ([]models.Question, error)
 	ApproveQuestion(id uint) (*models.Question, error)
@@ -24,17 +24,15 @@ func NewQuestionService(qRepo repositories.QuestionRepository) QuestionService {
 	return &questionService{questionRepo: qRepo}
 }
 
-func (s *questionService) CreateQuestion(title, content string, userID uint, groupID uint) (*models.Question, error) {
-	if title == "" || content == "" {
-		return nil, errors.New("title and content are required")
+func (s *questionService) CreateQuestion(title string, userID uint) (*models.Question, error) {
+	if title == "" {
+		return nil, errors.New("title is required")
 	}
 
 	question := &models.Question{
-		Title:   title,
-		Content: content,
-		UserID:  userID,
-		GroupID: groupID,
-		Status:  models.StatusPending,
+		Title:  title,
+		UserID: userID,
+		Status: models.StatusPending,
 	}
 
 	if err := s.questionRepo.CreateQuestion(question); err != nil {
@@ -48,7 +46,7 @@ func (s *questionService) GetQuestionByID(id uint) (*models.Question, error) {
 	return s.questionRepo.GetQuestionByID(id)
 }
 
-func (s *questionService) UpdateQuestion(id uint, title, content string, groupID uint) (*models.Question, error) {
+func (s *questionService) UpdateQuestion(id uint, title string) (*models.Question, error) {
 	question, err := s.questionRepo.GetQuestionByID(id)
 	if err != nil {
 		return nil, err
@@ -56,14 +54,6 @@ func (s *questionService) UpdateQuestion(id uint, title, content string, groupID
 
 	if title != "" {
 		question.Title = title
-	}
-
-	if content != "" {
-		question.Content = content
-	}
-
-	if groupID != 0 {
-		question.GroupID = groupID
 	}
 
 	if err := s.questionRepo.UpdateQuestion(question); err != nil {
@@ -78,9 +68,51 @@ func (s *questionService) DeleteQuestion(id uint) error {
 }
 
 func (s *questionService) ListQuestions(filters map[string]interface{}) ([]models.Question, error) {
-	return s.questionRepo.ListQuestions(filters)
-}
+	questions, err := s.questionRepo.ListQuestions(filters)
+	if err != nil {
+		return nil, err
+	}
 
+	// Lọc theo tag nếu có
+	if tagID, ok := filters["tag_id"]; ok {
+		var filtered []models.Question
+		for _, q := range questions {
+			for _, t := range q.Tags {
+				if t.ID == tagID.(uint) {
+					filtered = append(filtered, q)
+					break
+				}
+			}
+		}
+		questions = filtered
+	}
+
+	if userIDRaw, ok := filters["user_id"]; ok {
+		userID := userIDRaw.(uint)
+
+		// Lấy các ID câu hỏi bị user này ẩn
+		passedIDs, err := s.questionRepo.GetPassedQuestionIDs(userID)
+		if err != nil {
+			return nil, err
+		}
+
+		// Tạo map để tra nhanh
+		passedMap := make(map[uint]bool)
+		for _, id := range passedIDs {
+			passedMap[id] = true
+		}
+
+		var visibleQuestions []models.Question
+		for _, q := range questions {
+			if !passedMap[q.ID] {
+				visibleQuestions = append(visibleQuestions, q)
+			}
+		}
+		questions = visibleQuestions
+	}
+
+	return questions, nil
+}
 func (s *questionService) ApproveQuestion(id uint) (*models.Question, error) {
 	question, err := s.questionRepo.GetQuestionByID(id)
 	if err != nil {
