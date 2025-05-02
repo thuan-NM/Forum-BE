@@ -11,6 +11,7 @@ type QuestionRepository interface {
 	UpdateQuestion(question *models.Question) error
 	DeleteQuestion(id uint) error
 	ListQuestions(filters map[string]interface{}) ([]models.Question, error)
+	GetPassedQuestionIDs(userID uint) ([]uint, error)
 }
 
 type questionRepository struct {
@@ -28,10 +29,10 @@ func (r *questionRepository) CreateQuestion(question *models.Question) error {
 func (r *questionRepository) GetQuestionByID(id uint) (*models.Question, error) {
 	var question models.Question
 	err := r.db.Preload("User").
-		Preload("Group").
 		Preload("Answers").
 		Preload("Comments").
 		Preload("Tags").
+		Preload("Follows").
 		First(&question, id).Error
 	if err != nil {
 		return nil, err
@@ -49,17 +50,9 @@ func (r *questionRepository) DeleteQuestion(id uint) error {
 
 func (r *questionRepository) ListQuestions(filters map[string]interface{}) ([]models.Question, error) {
 	var questions []models.Question
-	query := r.db.Preload("User").Preload("Group").Preload("Tags").Preload("Answers").Preload("Comments")
-
-	// Áp dụng các bộ lọc nếu có
-	if filters != nil {
-		for key, value := range filters {
-			if key == "title_search" {
-				query = query.Where("title LIKE ?", "%"+value.(string)+"%")
-			} else {
-				query = query.Where(key+" = ?", value)
-			}
-		}
+	query := r.db.Preload("User").Preload("Tags").Preload("Answers").Preload("Comments").Preload("Follows")
+	if sort, ok := filters["sort"]; ok && sort == "follow_count" {
+		query = query.Order("(SELECT COUNT(*) FROM follows WHERE follows.question_id = questions.id) DESC")
 	}
 
 	err := query.Find(&questions).Error
@@ -68,4 +61,12 @@ func (r *questionRepository) ListQuestions(filters map[string]interface{}) ([]mo
 	}
 
 	return questions, nil
+}
+func (r *questionRepository) GetPassedQuestionIDs(userID uint) ([]uint, error) {
+	var ids []uint
+	err := r.db.Table("passed_questions").Where("user_id = ?", userID).Pluck("question_id", &ids).Error
+	if err != nil {
+		return nil, err
+	}
+	return ids, nil
 }

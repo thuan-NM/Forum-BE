@@ -3,8 +3,7 @@ package main
 import (
 	"Forum_BE/config"
 	"Forum_BE/infrastructure"
-
-	//"Forum_BE/models"
+	"Forum_BE/models"
 	"Forum_BE/routes"
 	"log"
 
@@ -23,18 +22,19 @@ func main() {
 	}
 
 	//Auto migrate models
-	//err = db.AutoMigrate(
-	//	&models.User{},
-	//	&models.Permission{},
-	//	&models.Question{},
-	//	&models.Answer{},
-	//	&models.Comment{},
-	//	&models.Vote{},
-	//	&models.Tag{},
-	//	&models.Follow{},
-	//	&models.Group{},
-	//	&models.Post{},
-	//)
+	err = db.AutoMigrate(
+		&models.User{},
+		&models.Permission{},
+		&models.Question{},
+		&models.Answer{},
+		&models.Comment{},
+		&models.Vote{},
+		&models.Tag{},
+		&models.Follow{},
+		&models.Group{},
+		&models.Post{},
+		&models.PassedQuestion{},
+	)
 	if err != nil {
 		log.Fatal("Failed to migrate database:", err)
 	}

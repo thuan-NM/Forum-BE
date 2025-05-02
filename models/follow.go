@@ -1,19 +1,17 @@
 package models
 
 import (
-	"gorm.io/gorm"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 type Follow struct {
-	ID          uint           `gorm:"primaryKey" json:"id"`
-	FollowerID  uint           `gorm:"not null;index" json:"follower_id"`
-	FollowingID uint           `gorm:"not null;index" json:"following_id"`
-	CreatedAt   time.Time      `json:"created_at"`
-	UpdatedAt   time.Time      `json:"updated_at"`
-	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
+	UserID     uint           `gorm:"primaryKey" json:"user_id"`
+	QuestionID uint           `gorm:"primaryKey" json:"question_id"`
+	CreatedAt  time.Time      `json:"created_at"`
+	DeletedAt  gorm.DeletedAt `gorm:"index" json:"-"`
 
-	// Relationships
-	Follower  User `json:"follower,omitempty" gorm:"foreignKey:FollowerID"`
-	Following User `json:"following,omitempty" gorm:"foreignKey:FollowingID"`
+	User     User     `gorm:"foreignKey:UserID;references:ID;constraint:OnDelete:CASCADE;" json:"user,omitempty"`
+	Question Question `gorm:"foreignKey:QuestionID;references:ID;constraint:OnDelete:CASCADE;" json:"question,omitempty"`
 }
