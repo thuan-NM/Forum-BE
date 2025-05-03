@@ -2,17 +2,17 @@ package routes
 
 import (
 	"Forum_BE/config"
-	//"Forum_BE/config"
 	"Forum_BE/middlewares"
 	"Forum_BE/models"
 	"Forum_BE/repositories"
 	"Forum_BE/services"
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v8"
 	"gorm.io/gorm"
 	"log"
 )
 
-func SetupRoutes(r *gin.Engine, db *gorm.DB, jwtSecret string) {
+func SetupRoutes(r *gin.Engine, db *gorm.DB, jwtSecret string, redisClient *redis.Client) {
 	userRepo := repositories.NewUserRepository(db)
 	permissionRepo := repositories.NewPermissionRepository(db)
 	permService := services.NewPermissionService(permissionRepo, userRepo)
@@ -33,22 +33,24 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, jwtSecret string) {
 			log.Printf("Created permission: %+v", perm)
 		}
 	}
+
 	AuthRoutes(r, db, jwtSecret)
+
 	// Protected routes
 	authMiddleware := middlewares.AuthMiddleware(jwtSecret)
 	authorized := r.Group("/api")
 	authorized.Use(authMiddleware)
 	{
 		UserRoutes(db, authorized, permService)
-		QuestionRoutes(db, authorized, permService)
-		PostRoutes(db, authorized, permService)
+		QuestionRoutes(db, authorized, permService, redisClient)
+		PostRoutes(db, authorized, permService, redisClient)
 		AnswerRoutes(db, authorized, permService)
-		CommentRoutes(db, authorized, permService)
+		CommentRoutes(db, authorized, permService, redisClient)
 		TagRoutes(db, authorized, permService)
-		FollowRoutes(db, authorized, permService)
-		GroupRoutes(db, authorized, permService)
+		FollowRoutes(db, authorized, permService, redisClient)
+		GroupRoutes(db, authorized, permService, redisClient)
 		VoteRoutes(db, authorized, permService)
 		PermissionRoutes(authorized, permService)
-		PassRoutes(db, authorized, permService)
+		PassRoutes(db, authorized, permService, redisClient)
 	}
 }

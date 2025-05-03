@@ -21,7 +21,7 @@ func LoadConfig() *Config {
 
 	serverPort := os.Getenv("SERVER_PORT")
 	if serverPort == "" {
-		serverPort = "8080" // Mặc định port 8080
+		serverPort = "8080"
 	}
 
 	return &Config{

@@ -3,7 +3,8 @@ package services
 import (
 	"Forum_BE/models"
 	"Forum_BE/repositories"
-	"errors"
+	"fmt"
+	"log"
 )
 
 type PermissionService interface {
@@ -12,12 +13,12 @@ type PermissionService interface {
 	UpdatePermission(role, resource, action string, allowed bool) (*models.Permission, error)
 	DeletePermission(id uint) error
 	ListPermissions() ([]models.Permission, error)
-	GetUserRole(userID uint) (models.Role, error) // Thêm phương thức này để middleware có thể lấy role
+	GetUserRole(userID uint) (models.Role, error)
 }
 
 type permissionService struct {
 	permissionRepo repositories.PermissionRepository
-	userRepo       repositories.UserRepository // Thêm repository user để lấy role
+	userRepo       repositories.UserRepository
 }
 
 func NewPermissionService(pRepo repositories.PermissionRepository, uRepo repositories.UserRepository) PermissionService {
@@ -26,13 +27,12 @@ func NewPermissionService(pRepo repositories.PermissionRepository, uRepo reposit
 
 func (s *permissionService) CreatePermission(role, resource, action string, allowed bool) (*models.Permission, error) {
 	if role == "" || resource == "" || action == "" {
-		return nil, errors.New("role, resource and action are required")
+		return nil, fmt.Errorf("role, resource, and action are required")
 	}
 
-	// Kiểm tra xem permission đã tồn tại chưa
 	existingPermission, err := s.permissionRepo.GetPermission(role, resource, action)
 	if err == nil && existingPermission != nil {
-		return nil, errors.New("permission already exists")
+		return nil, fmt.Errorf("permission already exists")
 	}
 
 	permission := &models.Permission{
@@ -43,6 +43,7 @@ func (s *permissionService) CreatePermission(role, resource, action string, allo
 	}
 
 	if err := s.permissionRepo.CreatePermission(permission); err != nil {
+		log.Printf("Failed to create permission for %s:%s:%s: %v", role, resource, action, err)
 		return nil, err
 	}
 
@@ -50,18 +51,24 @@ func (s *permissionService) CreatePermission(role, resource, action string, allo
 }
 
 func (s *permissionService) GetPermission(role, resource, action string) (*models.Permission, error) {
-	return s.permissionRepo.GetPermission(role, resource, action)
+	permission, err := s.permissionRepo.GetPermission(role, resource, action)
+	if err != nil {
+		log.Printf("Failed to get permission for %s:%s:%s: %v", role, resource, action, err)
+	}
+	return permission, err
 }
 
 func (s *permissionService) UpdatePermission(role, resource, action string, allowed bool) (*models.Permission, error) {
 	permission, err := s.permissionRepo.GetPermission(role, resource, action)
 	if err != nil {
+		log.Printf("Failed to find permission for %s:%s:%s: %v", role, resource, action, err)
 		return nil, err
 	}
 
 	permission.Allowed = allowed
 
 	if err := s.permissionRepo.UpdatePermission(permission); err != nil {
+		log.Printf("Failed to update permission for %s:%s:%s: %v", role, resource, action, err)
 		return nil, err
 	}
 
@@ -69,16 +76,25 @@ func (s *permissionService) UpdatePermission(role, resource, action string, allo
 }
 
 func (s *permissionService) DeletePermission(id uint) error {
-	return s.permissionRepo.DeletePermission(id)
+	err := s.permissionRepo.DeletePermission(id)
+	if err != nil {
+		log.Printf("Failed to delete permission %d: %v", id, err)
+	}
+	return err
 }
 
 func (s *permissionService) ListPermissions() ([]models.Permission, error) {
-	return s.permissionRepo.ListPermissions()
+	permissions, err := s.permissionRepo.ListPermissions()
+	if err != nil {
+		log.Printf("Failed to list permissions: %v", err)
+	}
+	return permissions, err
 }
 
 func (s *permissionService) GetUserRole(userID uint) (models.Role, error) {
 	user, err := s.userRepo.GetUserByID(userID)
 	if err != nil {
+		log.Printf("Failed to get user %d: %v", userID, err)
 		return "", err
 	}
 	return user.Role, nil
