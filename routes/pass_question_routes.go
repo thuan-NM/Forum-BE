@@ -5,15 +5,15 @@ import (
 	"Forum_BE/middlewares"
 	"Forum_BE/repositories"
 	"Forum_BE/services"
-
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v8"
 	"gorm.io/gorm"
 )
 
-func PassRoutes(db *gorm.DB, authorized *gin.RouterGroup, permService services.PermissionService) {
+func PassRoutes(db *gorm.DB, authorized *gin.RouterGroup, permService services.PermissionService, redisClient *redis.Client) {
 	// Khởi tạo repo, service, controller
 	passRepo := repositories.NewPassRepository(db)
-	passService := services.NewPassService(passRepo)
+	passService := services.NewPassService(passRepo, redisClient)
 	passController := controllers.NewPassController(passService)
 
 	passes := authorized.Group("/passes")

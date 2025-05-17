@@ -6,11 +6,12 @@ import (
 )
 
 type QuestionResponse struct {
-	ID           uint   `json:"id"`
-	Title        string `json:"title"`
-	AnswerCount  int    `json:"answerCount"`
-	LastFollowed string `json:"lastFollowed"`
-	FollowCount  int    `json:"followCount"`
+	ID           uint            `json:"id"`
+	Title        string          `json:"title"`
+	AnswerCount  int             `json:"answerCount"`
+	LastFollowed string          `json:"lastFollowed"`
+	FollowCount  int             `json:"followCount"`
+	Topics       []TopicResponse `json:"topics"`
 }
 
 func ToQuestionResponse(question *models.Question) QuestionResponse {
@@ -25,11 +26,17 @@ func ToQuestionResponse(question *models.Question) QuestionResponse {
 		lastFollowed = latest.Format(time.RFC3339)
 	}
 
+	var topics []TopicResponse
+	for _, topic := range question.Topics {
+		topics = append(topics, ToTopicResponse(&topic))
+	}
+
 	return QuestionResponse{
 		ID:           question.ID,
 		Title:        question.Title,
 		AnswerCount:  len(question.Answers),
 		LastFollowed: lastFollowed,
 		FollowCount:  len(question.Follows),
+		Topics:       topics,
 	}
 }

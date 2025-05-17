@@ -4,7 +4,8 @@ import (
 	"Forum_BE/models"
 	"Forum_BE/repositories"
 	"Forum_BE/utils"
-	"errors"
+	"fmt"
+	"log"
 )
 
 type UserService interface {
@@ -27,23 +28,22 @@ func NewUserService(uRepo repositories.UserRepository) UserService {
 
 func (s *userService) CreateUser(username, email, password string) (*models.User, error) {
 	if username == "" || email == "" || password == "" {
-		return nil, errors.New("username, email, and password are required")
+		return nil, fmt.Errorf("username, email, and password are required")
 	}
 
-	// Kiểm tra xem username hoặc email đã tồn tại chưa
 	existingUser, err := s.userRepo.GetUserByUsername(username)
 	if err == nil && existingUser != nil {
-		return nil, errors.New("username already exists")
+		return nil, fmt.Errorf("username already exists")
 	}
 
 	existingUser, err = s.userRepo.GetUserByEmail(email)
 	if err == nil && existingUser != nil {
-		return nil, errors.New("email already exists")
+		return nil, fmt.Errorf("email already exists")
 	}
 
-	// Mã hóa mật khẩu
 	hashedPassword, err := utils.HashPassword(password)
 	if err != nil {
+		log.Printf("Failed to hash password for %s: %v", email, err)
 		return nil, err
 	}
 
@@ -51,10 +51,11 @@ func (s *userService) CreateUser(username, email, password string) (*models.User
 		Username: username,
 		Email:    email,
 		Password: hashedPassword,
-		Role:     models.RoleUser, // Mặc định là User
+		Role:     models.RoleUser,
 	}
 
 	if err := s.userRepo.CreateUser(user); err != nil {
+		log.Printf("Failed to create user %s: %v", email, err)
 		return nil, err
 	}
 
@@ -62,15 +63,27 @@ func (s *userService) CreateUser(username, email, password string) (*models.User
 }
 
 func (s *userService) GetUserByID(id uint) (*models.User, error) {
-	return s.userRepo.GetUserByID(id)
+	user, err := s.userRepo.GetUserByID(id)
+	if err != nil {
+		log.Printf("Failed to get user %d: %v", id, err)
+	}
+	return user, err
 }
 
 func (s *userService) GetUserByUsername(username string) (*models.User, error) {
-	return s.userRepo.GetUserByUsername(username)
+	user, err := s.userRepo.GetUserByUsername(username)
+	if err != nil {
+		log.Printf("Failed to get user by username %s: %v", username, err)
+	}
+	return user, err
 }
 
 func (s *userService) GetUserByEmail(email string) (*models.User, error) {
-	return s.userRepo.GetUserByEmail(email)
+	user, err := s.userRepo.GetUserByEmail(email)
+	if err != nil {
+		log.Printf("Failed to get user by email %s: %v", email, err)
+	}
+	return user, err
 }
 
 func (s *userService) UpdateUser(id uint, username, email, password, role string) (*models.User, error) {
@@ -80,19 +93,17 @@ func (s *userService) UpdateUser(id uint, username, email, password, role string
 	}
 
 	if username != "" {
-		// Kiểm tra xem username đã tồn tại chưa
 		existingUser, err := s.userRepo.GetUserByUsername(username)
 		if err == nil && existingUser != nil && existingUser.ID != id {
-			return nil, errors.New("username already exists")
+			return nil, fmt.Errorf("username already exists")
 		}
 		user.Username = username
 	}
 
 	if email != "" {
-		// Kiểm tra xem email đã tồn tại chưa
 		existingUser, err := s.userRepo.GetUserByEmail(email)
 		if err == nil && existingUser != nil && existingUser.ID != id {
-			return nil, errors.New("email already exists")
+			return nil, fmt.Errorf("email already exists")
 		}
 		user.Email = email
 	}
@@ -100,22 +111,23 @@ func (s *userService) UpdateUser(id uint, username, email, password, role string
 	if password != "" {
 		hashedPassword, err := utils.HashPassword(password)
 		if err != nil {
+			log.Printf("Failed to hash password for user %d: %v", id, err)
 			return nil, err
 		}
 		user.Password = hashedPassword
 	}
 
 	if role != "" {
-		// Kiểm tra role hợp lệ
 		switch role {
 		case string(models.RoleRoot), string(models.RoleAdmin), string(models.RoleEmployee), string(models.RoleUser):
 			user.Role = models.Role(role)
 		default:
-			return nil, errors.New("invalid role")
+			return nil, fmt.Errorf("invalid role")
 		}
 	}
 
 	if err := s.userRepo.UpdateUser(user); err != nil {
+		log.Printf("Failed to update user %d: %v", id, err)
 		return nil, err
 	}
 
@@ -123,9 +135,17 @@ func (s *userService) UpdateUser(id uint, username, email, password, role string
 }
 
 func (s *userService) DeleteUser(id uint) error {
-	return s.userRepo.DeleteUser(id)
+	err := s.userRepo.DeleteUser(id)
+	if err != nil {
+		log.Printf("Failed to delete user %d: %v", id, err)
+	}
+	return err
 }
 
 func (s *userService) ListUsers() ([]models.User, error) {
-	return s.userRepo.ListUsers()
+	users, err := s.userRepo.ListUsers()
+	if err != nil {
+		log.Printf("Failed to list users: %v", err)
+	}
+	return users, err
 }

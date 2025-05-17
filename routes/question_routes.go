@@ -6,15 +6,18 @@ import (
 	"Forum_BE/repositories"
 	"Forum_BE/services"
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v8"
 	"gorm.io/gorm"
 )
 
-func QuestionRoutes(db *gorm.DB, authorized *gin.RouterGroup, permService services.PermissionService) {
+func QuestionRoutes(db *gorm.DB, authorized *gin.RouterGroup, permService services.PermissionService, redisClient *redis.Client) {
 	// Question routes
 	voteRepo := repositories.NewVoteRepository(db)
 	voteService := services.NewVoteService(voteRepo)
+	topicRepo := repositories.NewTopicRepository(db)
+	topicService := services.NewTopicService(topicRepo, redisClient)
 	questionRepo := repositories.NewQuestionRepository(db)
-	questionService := services.NewQuestionService(questionRepo)
+	questionService := services.NewQuestionService(questionRepo, topicService, redisClient)
 	questionController := controllers.NewQuestionController(questionService, voteService)
 
 	questions := authorized.Group("/questions")
