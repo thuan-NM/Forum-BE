@@ -1,9 +1,8 @@
 package models
 
 import (
-	"time"
-
 	"gorm.io/gorm"
+	"time"
 )
 
 type QuestionStatus string
@@ -28,6 +27,6 @@ type Question struct {
 	Answers  []Answer  `json:"answers,omitempty"`
 	Comments []Comment `json:"comments,omitempty"`
 	Votes    []Vote    `gorm:"foreignKey:VotableID;references:ID;constraint:OnDelete:CASCADE;" json:"votes,omitempty"`
-	Tags     []Tag     `gorm:"many2many:question_tags;" json:"tags,omitempty"`
+	Topics   []Topic   `gorm:"many2many:question_topics;" json:"topics,omitempty"` // Đổi từ Tags thành Topics
 	Follows  []Follow  `gorm:"foreignKey:QuestionID;references:ID;constraint:OnDelete:CASCADE;" json:"follows,omitempty"`
 }

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"github.com/go-redis/redis/v8"
 	"log"
+	"strings"
 	"time"
 )
 
@@ -24,11 +25,12 @@ type QuestionService interface {
 
 type questionService struct {
 	questionRepo repositories.QuestionRepository
+	topicService TopicService
 	redisClient  *redis.Client
 }
 
-func NewQuestionService(qRepo repositories.QuestionRepository, redisClient *redis.Client) QuestionService {
-	return &questionService{questionRepo: qRepo, redisClient: redisClient}
+func NewQuestionService(qRepo repositories.QuestionRepository, tService TopicService, redisClient *redis.Client) QuestionService {
+	return &questionService{questionRepo: qRepo, topicService: tService, redisClient: redisClient}
 }
 
 func (s *questionService) CreateQuestion(title string, userID uint) (*models.Question, error) {
@@ -47,10 +49,35 @@ func (s *questionService) CreateQuestion(title string, userID uint) (*models.Que
 		return nil, err
 	}
 
+	// Gợi ý Topic dựa trên tiêu đề (logic đơn giản)
+	s.suggestTopicsForQuestion(question)
+
 	// Xóa cache
 	s.invalidateCache("questions:*")
 
 	return question, nil
+}
+
+func (s *questionService) suggestTopicsForQuestion(question *models.Question) {
+	// Logic đơn giản: lấy từ khóa từ tiêu đề
+	keywords := strings.Split(strings.ToLower(question.Title), " ")
+	for _, keyword := range keywords {
+		if len(keyword) < 3 { // Bỏ qua từ khóa quá ngắn
+			continue
+		}
+		// Kiểm tra xem Topic đã tồn tại chưa
+		_, err := s.topicService.GetTopicByID(0) // Giả lập tìm kiếm, cần thay bằng logic thực
+		if err != nil && err.Error() == "topic not found" {
+			// Đề xuất Topic mới (hệ thống tạo)
+			_, err := s.topicService.CreateTopic(keyword, "Auto-generated topic from question", 0) // 0 là hệ thống
+			if err != nil {
+				log.Printf("Failed to suggest topic %s for question %d: %v", keyword, question.ID, err)
+				continue
+			}
+			// Gắn Topic vào Question (cần logic kiểm tra trước)
+			// s.topicService.AddQuestionToTopic(question.ID, topic.ID)
+		}
+	}
 }
 
 func (s *questionService) GetQuestionByID(id uint) (*models.Question, error) {
@@ -141,11 +168,11 @@ func (s *questionService) ListQuestions(filters map[string]interface{}) ([]model
 		return nil, err
 	}
 
-	if tagID, ok := filters["tag_id"]; ok {
+	if topicID, ok := filters["topic_id"]; ok {
 		var filtered []models.Question
 		for _, q := range questions {
-			for _, t := range q.Tags {
-				if t.ID == tagID.(uint) {
+			for _, t := range q.Topics { // Đổi từ Tags thành Topics
+				if t.ID == topicID.(uint) {
 					filtered = append(filtered, q)
 					break
 				}
