@@ -6,17 +6,18 @@ import (
 	"Forum_BE/repositories"
 	"Forum_BE/services"
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v8"
 	"gorm.io/gorm"
 )
 
-func CommentRoutes(db *gorm.DB, authorized *gin.RouterGroup, permService services.PermissionService) {
+func CommentRoutes(db *gorm.DB, authorized *gin.RouterGroup, permService services.PermissionService, redisClient *redis.Client) {
 	// Comment routes
 	voteRepo := repositories.NewVoteRepository(db)
 	voteService := services.NewVoteService(voteRepo)
 	questionRepo := repositories.NewQuestionRepository(db)
 	answerRepo := repositories.NewAnswerRepository(db)
 	commentRepo := repositories.NewCommentRepository(db)
-	commentService := services.NewCommentService(commentRepo, questionRepo, answerRepo)
+	commentService := services.NewCommentService(commentRepo, questionRepo, answerRepo, redisClient)
 	commentController := controllers.NewCommentController(commentService, voteService)
 
 	comments := authorized.Group("/comments")

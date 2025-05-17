@@ -6,13 +6,15 @@ import (
 	"Forum_BE/repositories"
 	"Forum_BE/services"
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v8"
+	
 	"gorm.io/gorm"
 )
 
-func FollowRoutes(db *gorm.DB, authorized *gin.RouterGroup, permService services.PermissionService) {
+func FollowRoutes(db *gorm.DB, authorized *gin.RouterGroup, permService services.PermissionService, redisClient *redis.Client) {
 	// Follow routes
 	followRepo := repositories.NewFollowRepository(db)
-	followService := services.NewFollowService(followRepo)
+	followService := services.NewFollowService(followRepo, redisClient)
 	followController := controllers.NewFollowController(followService)
 
 	follows := authorized.Group("/follows")

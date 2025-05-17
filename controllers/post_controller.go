@@ -20,7 +20,6 @@ func NewPostController(p services.PostService) *PostController {
 func (pc *PostController) CreatePost(c *gin.Context) {
 	var req struct {
 		Content string `json:"content" binding:"required"`
-		GroupID uint   `json:"group_id" binding:"required"`
 		Status  string `json:"status"`
 	}
 
@@ -35,7 +34,7 @@ func (pc *PostController) CreatePost(c *gin.Context) {
 		status = string(models.Pending)
 	}
 
-	post, err := pc.postService.CreatePost(req.Content, userID, req.GroupID, models.PostStatus(status))
+	post, err := pc.postService.CreatePost(req.Content, userID, models.PostStatus(status))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -105,14 +104,6 @@ func (pc *PostController) UpdatePost(c *gin.Context) {
 
 func (pc *PostController) ListPosts(c *gin.Context) {
 	filters := make(map[string]interface{})
-
-	groupID := c.Query("group_id")
-	if groupID != "" {
-		gID, err := strconv.Atoi(groupID)
-		if err == nil {
-			filters["group_id"] = uint(gID)
-		}
-	}
 
 	userID := c.Query("user_id")
 	if userID != "" {

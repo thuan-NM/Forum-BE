@@ -20,7 +20,6 @@ func ToPostResponse(post *models.Post) PostResponse {
 		PostID:    post.PostID,
 		Content:   post.Content,
 		UserID:    post.UserID,
-		GroupID:   post.GroupID,
 		Status:    string(post.Status),
 		CreatedAt: post.CreatedAt,
 		UpdatedAt: post.UpdatedAt,

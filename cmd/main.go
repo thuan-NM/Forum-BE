@@ -14,6 +14,7 @@ import (
 func main() {
 	// Load configuration
 	cfg := config.LoadConfig()
+	redisClient := config.InitRedis()
 
 	// Connect to MySQL
 	db, err := infrastructure.ConnectMySQL(cfg.DBDSN)
@@ -21,7 +22,7 @@ func main() {
 		log.Fatal("Failed to connect to database:", err)
 	}
 
-	//Auto migrate models
+	// Auto migrate models
 	err = db.AutoMigrate(
 		&models.User{},
 		&models.Permission{},
@@ -39,12 +40,7 @@ func main() {
 		log.Fatal("Failed to migrate database:", err)
 	}
 
-	// Initialize Permission Service
-
 	// Initialize Gin router
-	// Trong main.go
-	// Di chuyển middleware CORS lên TRƯỚC khi setup routes
-
 	r := gin.Default()
 
 	// Thêm middleware CORS trước
@@ -56,8 +52,8 @@ func main() {
 		AllowCredentials: true,
 	}))
 
-	// Sau đó mới setup routes
-	routes.SetupRoutes(r, db, cfg.JWTSecret)
+	// Setup routes với redisClient
+	routes.SetupRoutes(r, db, cfg.JWTSecret, redisClient)
 
 	// Start server
 	if err := r.Run(":" + cfg.ServerPort); err != nil {
