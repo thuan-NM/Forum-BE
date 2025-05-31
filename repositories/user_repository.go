@@ -13,6 +13,7 @@ type UserRepository interface {
 	UpdateUser(user *models.User) error
 	DeleteUser(id uint) error
 	ListUsers() ([]models.User, error)
+	ListUsersPaginated(limit, offset int) ([]models.User, int64, error)
 }
 
 type userRepository struct {
@@ -64,9 +65,26 @@ func (r *userRepository) DeleteUser(id uint) error {
 
 func (r *userRepository) ListUsers() ([]models.User, error) {
 	var users []models.User
-	err := r.db.Find(&users).Error
+	err := r.db.Where("deleted_at IS NULL").Find(&users).Error
 	if err != nil {
 		return nil, err
 	}
 	return users, nil
+}
+
+func (r *userRepository) ListUsersPaginated(limit, offset int) ([]models.User, int64, error) {
+	var users []models.User
+	var total int64
+
+	err := r.db.Model(&models.User{}).Where("deleted_at IS NULL").Count(&total).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	err = r.db.Where("deleted_at IS NULL").Limit(limit).Offset(offset).Find(&users).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return users, total, nil
 }

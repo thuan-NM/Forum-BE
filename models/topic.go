@@ -15,10 +15,10 @@ const (
 
 type Topic struct {
 	ID          uint           `gorm:"primaryKey" json:"id"`
-	Name        string         `gorm:"not null;uniqueIndex;size:255" json:"name"` // Giới hạn độ dài cột `name` thành 255 ký tự
+	Name        string         `gorm:"not null;uniqueIndex;size:255" json:"name"`
 	Description string         `json:"description"`
 	Status      TopicStatus    `gorm:"type:ENUM('approved','pending','rejected');default:'pending'" json:"status"`
-	CreatedBy   uint           `gorm:"not null;index" json:"created_by"` // Người tạo (hệ thống hoặc người dùng)
+	CreatedBy   uint           `gorm:"not null;index" json:"created_by"`
 	CreatedAt   time.Time      `json:"created_at"`
 	UpdatedAt   time.Time      `json:"updated_at"`
 	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`

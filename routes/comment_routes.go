@@ -11,13 +11,12 @@ import (
 )
 
 func CommentRoutes(db *gorm.DB, authorized *gin.RouterGroup, permService services.PermissionService, redisClient *redis.Client) {
-	// Comment routes
 	voteRepo := repositories.NewVoteRepository(db)
 	voteService := services.NewVoteService(voteRepo)
 	questionRepo := repositories.NewQuestionRepository(db)
 	answerRepo := repositories.NewAnswerRepository(db)
 	commentRepo := repositories.NewCommentRepository(db)
-	commentService := services.NewCommentService(commentRepo, questionRepo, answerRepo, redisClient)
+	commentService := services.NewCommentService(commentRepo, questionRepo, answerRepo, redisClient, db)
 	commentController := controllers.NewCommentController(commentService, voteService)
 
 	comments := authorized.Group("/comments")
@@ -27,5 +26,8 @@ func CommentRoutes(db *gorm.DB, authorized *gin.RouterGroup, permService service
 		comments.PUT("/:id", middlewares.CheckPermission(permService, "comment", "edit"), commentController.EditComment)
 		comments.DELETE("/:id", middlewares.CheckPermission(permService, "comment", "delete"), commentController.DeleteComment)
 		comments.GET("/", middlewares.CheckPermission(permService, "comment", "view"), commentController.ListComments)
+		comments.GET("/:id/replies", middlewares.CheckPermission(permService, "comment", "view"), commentController.ListReplies)
+		comments.GET("/all", middlewares.CheckPermission(permService, "comment", "view"), commentController.GetAllComments)
+		comments.PUT("status/:id", middlewares.CheckPermission(permService, "comment", "edit"), commentController.UpdateStatus)
 	}
 }

@@ -28,6 +28,9 @@ func AnswerRoutes(db *gorm.DB, authorized *gin.RouterGroup, permService services
 		answers.GET("/:id", middlewares.CheckPermission(permService, "answer", "view"), answerController.GetAnswer)
 		answers.PUT("/:id", middlewares.CheckPermission(permService, "answer", "edit"), answerController.EditAnswer)
 		answers.DELETE("/:id", middlewares.CheckPermission(permService, "answer", "delete"), answerController.DeleteAnswer)
-		answers.GET("/", middlewares.CheckPermission(permService, "answer", "view"), answerController.ListAnswers)
+		answers.GET("/questions", middlewares.CheckPermission(permService, "answer", "view"), answerController.ListAnswers)
+		answers.GET("/", middlewares.CheckPermission(permService, "answer", "view"), answerController.GetAllAnswers)
+		answers.PUT("/:id/status", middlewares.CheckPermission(permService, "answer", "edit_status"), answerController.UpdateAnswerStatus)
+		answers.PUT("/:id/accept", middlewares.CheckPermission(permService, "answer", "accept"), answerController.AcceptAnswer)
 	}
 }
