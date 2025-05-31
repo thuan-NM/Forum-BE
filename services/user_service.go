@@ -16,6 +16,8 @@ type UserService interface {
 	UpdateUser(id uint, username, email, password, role string) (*models.User, error)
 	DeleteUser(id uint) error
 	ListUsers() ([]models.User, error)
+	ListUsersPaginated(limit, offset int) ([]models.User, int64, error)
+	ModifyUserStatus(id uint, status string) (*models.User, error)
 }
 
 type userService struct {
@@ -23,7 +25,7 @@ type userService struct {
 }
 
 func NewUserService(uRepo repositories.UserRepository) UserService {
-	return &userService{uRepo}
+	return &userService{userRepo: uRepo}
 }
 
 func (s *userService) CreateUser(username, email, password string) (*models.User, error) {
@@ -51,7 +53,8 @@ func (s *userService) CreateUser(username, email, password string) (*models.User
 		Username: username,
 		Email:    email,
 		Password: hashedPassword,
-		Role:     models.RoleUser,
+		Role:     "user",
+		IsActive: true,
 	}
 
 	if err := s.userRepo.CreateUser(user); err != nil {
@@ -148,4 +151,36 @@ func (s *userService) ListUsers() ([]models.User, error) {
 		log.Printf("Failed to list users: %v", err)
 	}
 	return users, err
+}
+
+func (s *userService) ListUsersPaginated(limit, offset int) ([]models.User, int64, error) {
+	users, total, err := s.userRepo.ListUsersPaginated(limit, offset)
+	if err != nil {
+		log.Printf("Failed to list users: %v", err)
+	}
+	return users, total, err
+}
+
+func (s *userService) ModifyUserStatus(id uint, status string) (*models.User, error) {
+	user, err := s.userRepo.GetUserByID(id)
+	if err != nil {
+		log.Printf("Failed to get user %d: %v", id, err)
+		return nil, err
+	}
+
+	switch status {
+	case "ban":
+		user.IsBanned = true
+	case "unban":
+		user.IsBanned = false
+	default:
+		return nil, fmt.Errorf("invalid status")
+	}
+
+	if err := s.userRepo.UpdateUser(user); err != nil {
+		log.Printf("Failed to update user status %d: %v", id, err)
+		return nil, err
+	}
+
+	return user, nil
 }

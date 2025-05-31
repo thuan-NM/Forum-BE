@@ -21,7 +21,7 @@ func (pc *PermissionController) UpdatePermission(c *gin.Context) {
 		Role     string `json:"role" binding:"required,oneof=root admin employee user"`
 		Resource string `json:"resource" binding:"required"`
 		Action   string `json:"action" binding:"required"`
-		Allowed  bool   `json:"allowed" binding:"required"`
+		Allowed  bool   `json:"allowed" `
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
