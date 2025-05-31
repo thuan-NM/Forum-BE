@@ -16,7 +16,7 @@ func NewUserController(u services.UserService) *UserController {
 	return &UserController{userService: u}
 }
 
-// CreateUser xử lý yêu cầu tạo user mới
+// CreateUser handles the request to create a new user
 func (uc *UserController) CreateUser(c *gin.Context) {
 	var req struct {
 		Username string `json:"username" binding:"required"`
@@ -41,7 +41,7 @@ func (uc *UserController) CreateUser(c *gin.Context) {
 	})
 }
 
-// GetUser lấy user theo ID
+// GetUser fetches a user by ID
 func (uc *UserController) GetUser(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
@@ -61,7 +61,7 @@ func (uc *UserController) GetUser(c *gin.Context) {
 	})
 }
 
-// UpdateUser cập nhật thông tin user
+// UpdateUser updates user information
 func (uc *UserController) UpdateUser(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
@@ -94,7 +94,6 @@ func (uc *UserController) UpdateUser(c *gin.Context) {
 	})
 }
 
-// DeleteUser xóa user theo ID
 func (uc *UserController) DeleteUser(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
@@ -113,9 +112,17 @@ func (uc *UserController) DeleteUser(c *gin.Context) {
 	})
 }
 
-// ListUsers liệt kê tất cả users
 func (uc *UserController) ListUsers(c *gin.Context) {
-	users, err := uc.userService.ListUsers()
+	limitParam := c.Query("limit")
+	offsetParam := c.Query("offset")
+
+	limit, _ := strconv.Atoi(limitParam)
+	if limit == 0 {
+		limit = 10
+	}
+	offset, _ := strconv.Atoi(offsetParam)
+
+	users, total, err := uc.userService.ListUsersPaginated(limit, offset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list users"})
 		return
@@ -127,6 +134,38 @@ func (uc *UserController) ListUsers(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"users": responseUsers,
+		"users":  responseUsers,
+		"total":  total,
+		"limit":  limit,
+		"offset": offset,
+	})
+}
+
+func (uc *UserController) ModifyUserStatus(c *gin.Context) {
+	idParam := c.Param("id")
+	id, err := strconv.ParseUint(idParam, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
+		return
+	}
+
+	var req struct {
+		Status string `json:"status" binding:"required,oneof=ban unban"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	user, err := uc.userService.ModifyUserStatus(uint(id), req.Status)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "User status updated successfully",
+		"user":    responses.ToUserResponse(user),
 	})
 }

@@ -30,8 +30,6 @@ func (r *questionRepository) GetQuestionByID(id uint) (*models.Question, error) 
 	var question models.Question
 	err := r.db.Preload("User").
 		Preload("Answers").
-		Preload("Comments").
-		Preload("Tags").
 		Preload("Follows").
 		First(&question, id).Error
 	if err != nil {
@@ -50,7 +48,7 @@ func (r *questionRepository) DeleteQuestion(id uint) error {
 
 func (r *questionRepository) ListQuestions(filters map[string]interface{}) ([]models.Question, error) {
 	var questions []models.Question
-	query := r.db.Preload("User").Preload("Topics").Preload("Answers").Preload("Comments").Preload("Follows")
+	query := r.db.Preload("User").Preload("Topics").Preload("Answers").Preload("Follows")
 	if sort, ok := filters["sort"]; ok && sort == "follow_count" {
 		query = query.Order("(SELECT COUNT(*) FROM follows WHERE follows.question_id = questions.id) DESC")
 	}

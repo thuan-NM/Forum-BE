@@ -4,6 +4,7 @@ import (
 	"Forum_BE/config"
 	"Forum_BE/infrastructure"
 	"Forum_BE/models"
+
 	"Forum_BE/routes"
 	"log"
 
@@ -23,18 +24,26 @@ func main() {
 	}
 
 	// Auto migrate models
-	err = db.AutoMigrate(
+	db.Debug().AutoMigrate(
 		&models.User{},
-		&models.Permission{},
-		&models.Question{},
-		&models.Answer{},
-		&models.Comment{},
-		&models.Vote{},
-		&models.Tag{},
-		&models.Follow{},
 		&models.Group{},
-		&models.Post{},
+		&models.Activity{},
+		&models.Answer{},
+		&models.Attachment{},
+		&models.Follow{},
+		&models.Permission{},
 		&models.PassedQuestion{},
+		&models.Notification{},
+		&models.Comment{},
+		&models.Message{},
+		&models.Report{},
+		&models.Topic{},
+		&models.Tag{},
+		&models.Post{},
+		&models.Question{},
+		&models.Vote{},
+		&models.QuestionTag{},
+		//&models.QuestionTopic{},
 	)
 	if err != nil {
 		log.Fatal("Failed to migrate database:", err)
@@ -45,7 +54,7 @@ func main() {
 
 	// Thêm middleware CORS trước
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:5173"},
+		AllowOrigins:     []string{"http://localhost:5173", "http://localhost:5174"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},

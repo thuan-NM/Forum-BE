@@ -6,37 +6,38 @@ import (
 )
 
 type AnswerResponse struct {
-	ID         uint              `json:"id"`
-	Content    string            `json:"content"`
-	UserID     uint              `json:"user_id"`
-	QuestionID uint              `json:"question_id"`
-	CreatedAt  string            `json:"created_at"`
-	UpdatedAt  string            `json:"updated_at"`
-	Comments   []CommentResponse `json:"comments,omitempty"`
-	Votes      []VoteResponse    `json:"votes,omitempty"`
-	VoteCount  int64             `json:"vote_count,omitempty"`
+	ID             uint              `json:"id"`
+	Content        string            `json:"content"`
+	QuestionID     uint              `json:"questionId"`
+	CreatedAt      string            `json:"createdAt"`
+	UpdatedAt      string            `json:"updatedAt"`
+	Comments       []CommentResponse `json:"comments,omitempty"`
+	Status         string            `gorm:"type:ENUM('approved','pending','rejected');default:'pending'" json:"status"`
+	Accepted       bool              `gorm:"default:false" json:"isAccepted"`
+	RootCommentID  *uint             `json:"root_comment_id,omitempty" gorm:"index"`
+	HasEditHistory bool              `gorm:"default:false" json:"has_edit_history"`
+	Author         models.User       `json:"author"`
+	Question       models.Question   `json:"question"`
 }
 
-func ToAnswerResponse(answer *models.Answer, voteCount int64) AnswerResponse {
+func ToAnswerResponse(answer *models.Answer) AnswerResponse {
 	var comments []CommentResponse
 	for _, comment := range answer.Comments {
-		comments = append(comments, ToCommentResponse(&comment, voteCount))
-	}
-
-	var votes []VoteResponse
-	for _, vote := range answer.Votes {
-		votes = append(votes, ToVoteResponse(&vote))
+		comments = append(comments, ToCommentResponse(&comment))
 	}
 
 	return AnswerResponse{
-		ID:         answer.ID,
-		Content:    answer.Content,
-		UserID:     answer.UserID,
-		QuestionID: answer.QuestionID,
-		CreatedAt:  answer.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:  answer.UpdatedAt.Format(time.RFC3339),
-		Comments:   comments,
-		Votes:      votes,
-		VoteCount:  voteCount,
+		ID:             answer.ID,
+		Content:        answer.Content,
+		QuestionID:     answer.QuestionID,
+		CreatedAt:      answer.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:      answer.UpdatedAt.Format(time.RFC3339),
+		Accepted:       answer.Accepted,
+		RootCommentID:  answer.RootCommentID,
+		HasEditHistory: answer.HasEditHistory,
+		Comments:       comments,
+		Status:         answer.Status,
+		Author:         answer.User,
+		Question:       answer.Question,
 	}
 }

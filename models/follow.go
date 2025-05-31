@@ -7,9 +7,10 @@ import (
 )
 
 type Follow struct {
-	UserID     uint           `gorm:"primaryKey" json:"user_id"`
-	QuestionID uint           `gorm:"primaryKey" json:"question_id"`
-	CreatedAt  time.Time      `json:"created_at"`
+	ID         uint           `gorm:"primaryKey" json:"id"`
+	UserID     uint           `gorm:"not null;index" json:"user_id"`
+	QuestionID uint           `gorm:"not null;index" json:"question_id"`
+	CreatedAt  time.Time      `json:"created_at" gorm:"index"`
 	DeletedAt  gorm.DeletedAt `gorm:"index" json:"-"`
 
 	User     User     `gorm:"foreignKey:UserID;references:ID;constraint:OnDelete:CASCADE;" json:"user,omitempty"`
