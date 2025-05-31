@@ -22,5 +22,6 @@ func UserRoutes(db *gorm.DB, authorized *gin.RouterGroup, permService services.P
 		users.PUT("/:id", middlewares.CheckPermission(permService, "user", "edit"), userController.UpdateUser)
 		users.DELETE("/:id", middlewares.CheckPermission(permService, "user", "delete"), userController.DeleteUser)
 		users.GET("/", middlewares.CheckPermission(permService, "user", "view"), userController.ListUsers)
+		users.PUT("/:id/status", middlewares.CheckPermission(permService, "user", "edit"), userController.ModifyUserStatus)
 	}
 }

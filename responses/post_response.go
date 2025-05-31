@@ -17,7 +17,7 @@ type PostResponse struct {
 
 func ToPostResponse(post *models.Post) PostResponse {
 	return PostResponse{
-		PostID:    post.PostID,
+		PostID:    post.ID,
 		Content:   post.Content,
 		UserID:    post.UserID,
 		Status:    string(post.Status),

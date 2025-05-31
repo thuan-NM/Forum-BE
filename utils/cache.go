@@ -1,6 +1,8 @@
 package utils
 
-import "fmt"
+import (
+	"fmt"
+)
 
 func GenerateCacheKey(prefix string, id uint, filters map[string]interface{}) string {
 	key := fmt.Sprintf("%s:%d:", prefix, id)
@@ -24,6 +26,16 @@ func GenerateCacheKey(prefix string, id uint, filters map[string]interface{}) st
 	}
 	if sort, ok := filters["sort"]; ok {
 		key += fmt.Sprintf("sort:%v:", sort)
+	}
+	if questiontitle, ok := filters["questiontitle"]; ok {
+		key += fmt.Sprintf("questiontitle:%v:", questiontitle)
+	}
+	if search, ok := filters["search"]; ok {
+		key += fmt.Sprintf("search:%v:", search)
+	}
+	if typefilter, ok := filters["typefilter"]; ok {
+		key += fmt.Sprintf("typefilter:%v:", typefilter)
+
 	}
 	return key
 }

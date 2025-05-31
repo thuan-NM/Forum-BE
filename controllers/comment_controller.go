@@ -4,6 +4,7 @@ import (
 	"Forum_BE/responses"
 	"Forum_BE/services"
 	"github.com/gin-gonic/gin"
+	"log"
 	"net/http"
 	"strconv"
 )
@@ -17,22 +18,21 @@ func NewCommentController(c services.CommentService, v services.VoteService) *Co
 	return &CommentController{commentService: c, voteService: v}
 }
 
-// CreateComment xử lý yêu cầu tạo comment mới
 func (cc *CommentController) CreateComment(c *gin.Context) {
 	var req struct {
-		Content    string `json:"content" binding:"required"`
-		QuestionID *uint  `json:"question_id"`
-		AnswerID   *uint  `json:"answer_id"`
+		Content  string `json:"content" binding:"required"`
+		PostID   *uint  `json:"post_id"`
+		AnswerID *uint  `json:"answer_id"`
+		ParentID *uint  `json:"parent_id"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request: " + err.Error()})
 		return
 	}
 
-	userID := c.GetUint("user_id") // Middleware đã thêm user_id vào context
-
-	comment, err := cc.commentService.CreateComment(req.Content, userID, req.QuestionID, req.AnswerID)
+	userID := c.GetUint("user_id")
+	comment, err := cc.commentService.CreateComment(req.Content, userID, req.PostID, req.AnswerID, req.ParentID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -40,14 +40,12 @@ func (cc *CommentController) CreateComment(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Comment created successfully",
-		"comment": responses.ToCommentResponse(comment, 0),
+		"comment": responses.ToCommentResponse(comment),
 	})
 }
 
-// GetComment xử lý yêu cầu lấy comment theo ID
 func (cc *CommentController) GetComment(c *gin.Context) {
-	idParam := c.Param("id")
-	id, err := strconv.ParseUint(idParam, 10, 64)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid comment id"})
 		return
@@ -59,22 +57,13 @@ func (cc *CommentController) GetComment(c *gin.Context) {
 		return
 	}
 
-	// Lấy số lượng vote
-	voteCount, err := cc.voteService.GetVoteCount("comment", comment.ID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get vote count"})
-		return
-	}
-
 	c.JSON(http.StatusOK, gin.H{
-		"comment": responses.ToCommentResponse(comment, voteCount),
+		"comment": responses.ToCommentResponse(comment),
 	})
 }
 
-// EditComment xử lý yêu cầu cập nhật comment
 func (cc *CommentController) EditComment(c *gin.Context) {
-	idParam := c.Param("id")
-	id, err := strconv.ParseUint(idParam, 10, 64)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid comment id"})
 		return
@@ -85,7 +74,7 @@ func (cc *CommentController) EditComment(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request: " + err.Error()})
 		return
 	}
 
@@ -97,14 +86,12 @@ func (cc *CommentController) EditComment(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Comment updated successfully",
-		"comment": responses.ToCommentResponse(comment, 0),
+		"comment": responses.ToCommentResponse(comment),
 	})
 }
 
-// DeleteComment xử lý yêu cầu xóa comment
 func (cc *CommentController) DeleteComment(c *gin.Context) {
-	idParam := c.Param("id")
-	id, err := strconv.ParseUint(idParam, 10, 64)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid comment id"})
 		return
@@ -120,59 +107,162 @@ func (cc *CommentController) DeleteComment(c *gin.Context) {
 	})
 }
 
-// ListComments xử lý yêu cầu liệt kê tất cả các comment với các bộ lọc
 func (cc *CommentController) ListComments(c *gin.Context) {
-	// Lấy các query parameters để lọc
 	filters := make(map[string]interface{})
 
 	questionID := c.Query("question_id")
 	if questionID != "" {
-		qID, err := strconv.ParseUint(questionID, 10, 64)
-		if err == nil {
-			filters["question_id"] = uint(qID)
+		if qID, err := strconv.ParseUint(questionID, 10, 64); err == nil {
+			filters["post_id"] = uint(qID)
 		}
 	}
 
 	answerID := c.Query("answer_id")
 	if answerID != "" {
-		aID, err := strconv.ParseUint(answerID, 10, 64)
-		if err == nil {
+		if aID, err := strconv.ParseUint(answerID, 10, 64); err == nil {
 			filters["answer_id"] = uint(aID)
 		}
 	}
 
 	userID := c.Query("user_id")
 	if userID != "" {
-		uID, err := strconv.ParseUint(userID, 10, 64)
-		if err == nil {
+		if uID, err := strconv.ParseUint(userID, 10, 64); err == nil {
 			filters["user_id"] = uint(uID)
 		}
 	}
 
-	search := c.Query("search")
-	if search != "" {
-		filters["content LIKE ?"] = "%" + search + "%"
+	if search := c.Query("search"); search != "" {
+		filters["content"] = search
+	}
+	if page := c.Query("page"); page != "" {
+		if p, err := strconv.Atoi(page); err == nil {
+			filters["page"] = p
+		}
+	}
+	if limit := c.Query("limit"); limit != "" {
+		if l, err := strconv.Atoi(limit); err == nil {
+			filters["limit"] = l
+		}
 	}
 
-	comments, err := cc.commentService.ListComments(filters)
+	comments, total, err := cc.commentService.ListComments(filters)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list comments"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	var responseComments []responses.CommentResponse
 	for _, comment := range comments {
-		// Lấy số lượng vote cho từng bình luận
-		voteCount, err := cc.voteService.GetVoteCount("comment", comment.ID)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get vote count"})
-			return
-		}
-
-		responseComments = append(responseComments, responses.ToCommentResponse(&comment, voteCount))
+		responseComments = append(responseComments, responses.ToCommentResponse(&comment))
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"comments": responseComments,
+		"total":    total,
+	})
+}
+
+func (cc *CommentController) ListReplies(c *gin.Context) {
+	filters := make(map[string]interface{})
+
+	parentID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid comment id"})
+		return
+	}
+	if page := c.Query("page"); page != "" {
+		if p, err := strconv.Atoi(page); err == nil {
+			filters["page"] = p
+		}
+	}
+	if limit := c.Query("limit"); limit != "" {
+		if l, err := strconv.Atoi(limit); err == nil {
+			filters["limit"] = l
+		}
+	}
+
+	replies, total, err := cc.commentService.ListReplies(uint(parentID), filters)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	var responseReplies []responses.CommentResponse
+	for _, reply := range replies {
+		responseReplies = append(responseReplies, responses.ToCommentResponse(&reply))
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"replies": responseReplies,
+		"total":   total,
+	})
+}
+
+// Thêm vào comment_controller.go
+
+func (cc *CommentController) GetAllComments(c *gin.Context) {
+	filters := make(map[string]interface{})
+
+	if search := c.Query("search"); search != "" {
+		filters["search"] = search
+	}
+
+	if status := c.Query("status"); status != "" {
+		filters["status"] = status
+	}
+	if typefilter := c.Query("typefilter"); typefilter != "" {
+		filters["typefilter"] = typefilter
+	}
+	if page := c.Query("page"); page != "" {
+		if p, err := strconv.Atoi(page); err == nil {
+			filters["page"] = p
+		}
+	}
+	if limit := c.Query("limit"); limit != "" {
+		if l, err := strconv.Atoi(limit); err == nil {
+			filters["limit"] = l
+		}
+	}
+
+	comments, total, err := cc.commentService.GetAllComments(filters)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	var responseComments []responses.CommentResponse
+	for _, comment := range comments {
+		responseComments = append(responseComments, responses.ToCommentResponse(&comment))
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"comments": responseComments,
+		"total":    total,
+	})
+}
+func (cc *CommentController) UpdateStatus(c *gin.Context) {
+	idParam := c.Param("id")
+	id, err := strconv.ParseUint(idParam, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid comment id"})
+	}
+	var req struct {
+		Status string `json:"status" binding:"required"`
+	}
+	log.Printf(req.Status)
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	comment, err := cc.commentService.UpdateCommentStatus(uint(id), req.Status)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Comment updated successfully",
+		"comment": responses.ToCommentResponse(comment),
 	})
 }

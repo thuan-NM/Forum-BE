@@ -13,7 +13,7 @@ func PermissionRoutes(authorized *gin.RouterGroup, permService services.Permissi
 	permissions := authorized.Group("/permissions")
 	{
 		//permissions.POST("/", middlewares.CheckPermission(permService, "permission", "create"), permissionController.CreatePermission)
-		permissions.PUT("/", middlewares.CheckPermission(permService, "permission", "update"), permissionController.UpdatePermission)
+		permissions.PUT("/", middlewares.CheckPermission(permService, "permission", "edit"), permissionController.UpdatePermission)
 		permissions.GET("/", middlewares.CheckPermission(permService, "permission", "view"), permissionController.ListPermissions)
 	}
 }
