@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"Forum_BE/config"
 	//"Forum_BE/config"
 	"Forum_BE/middlewares"
 	"Forum_BE/models"
@@ -18,7 +19,7 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, jwtSecret string, redisClient *redi
 	permService := services.NewPermissionService(permissionRepo, userRepo)
 
 	var permissions []models.Permission
-	//config.InitPermissions()
+	config.InitPermissions()
 
 	for _, perm := range permissions {
 		existingPerm, err := permService.GetPermission(string(perm.Role), perm.Resource, perm.Action)
