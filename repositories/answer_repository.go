@@ -10,7 +10,7 @@ import (
 )
 
 type AnswerRepository interface {
-	CreateAnswer(answer *models.Answer, tagNames []string) error
+	CreateAnswer(answer *models.Answer, tagId []uint) error
 	GetAnswerByID(id uint) (*models.Answer, error)
 	UpdateAnswer(answer *models.Answer) error
 	DeleteAnswer(id uint) error
@@ -76,7 +76,7 @@ func (r *answerRepository) GetAllAnswers(filters map[string]interface{}) ([]mode
 	return answers, int(total), nil
 }
 
-func (r *answerRepository) CreateAnswer(answer *models.Answer, tagNames []string) error {
+func (r *answerRepository) CreateAnswer(answer *models.Answer, tagIDs []uint) error {
 	answer.PlainContent = utils.StripHTML(answer.Content)
 
 	tx := r.db.Begin()
@@ -89,25 +89,15 @@ func (r *answerRepository) CreateAnswer(answer *models.Answer, tagNames []string
 		return err
 	}
 
-	if len(tagNames) > 0 {
+	if len(tagIDs) > 0 {
 		var tags []models.Tag
-		for _, name := range tagNames {
-			name = strings.TrimSpace(strings.ToLower(name))
-			if name == "" {
-				continue
-			}
-			var tag models.Tag
-			if err := tx.Where("name = ?", name).FirstOrCreate(&tag, models.Tag{Name: name}).Error; err != nil {
-				tx.Rollback()
-				return err
-			}
-			tags = append(tags, tag)
+		if err := tx.Where("id IN ?", tagIDs).Find(&tags).Error; err != nil {
+			tx.Rollback()
+			return err
 		}
-		if len(tags) > 0 {
-			if err := tx.Model(answer).Association("Tags").Append(tags); err != nil {
-				tx.Rollback()
-				return err
-			}
+		if err := tx.Model(answer).Association("Tags").Replace(tags); err != nil {
+			tx.Rollback()
+			return err
 		}
 	}
 

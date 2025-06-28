@@ -8,6 +8,7 @@ import (
 type PostResponse struct {
 	ID            uint              `json:"id"`
 	Content       string            `json:"content"`
+	Title         string            `json:"title"`
 	Author        models.User       `json:"author"`
 	Status        string            `json:"status"`
 	Comments      []CommentResponse `json:"comments,omitempty"`
@@ -25,6 +26,7 @@ func ToPostResponse(post *models.Post) PostResponse {
 
 	return PostResponse{
 		ID:            post.ID,
+		Title:         post.Title,
 		Content:       post.Content,
 		Author:        post.User,
 		Status:        string(post.Status),
