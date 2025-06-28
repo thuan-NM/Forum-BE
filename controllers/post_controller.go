@@ -19,10 +19,9 @@ func NewPostController(p services.PostService) *PostController {
 
 func (pc *PostController) CreatePost(c *gin.Context) {
 	var req struct {
-		Title   string   `json:"title"`
-		Content string   `json:"content" binding:"required"`
-		Status  string   `json:"status"`
-		Tags    []string `json:"tags"`
+		Title   string `json:"title"`
+		Content string `json:"content" binding:"required"`
+		Tags    []uint `json:"tags"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -31,12 +30,8 @@ func (pc *PostController) CreatePost(c *gin.Context) {
 	}
 
 	userID := c.GetUint("user_id")
-	status := req.Status
-	if status == "" {
-		status = string(models.Pending)
-	}
 
-	post, err := pc.postService.CreatePost(req.Content, userID, models.PostStatus(status), req.Tags)
+	post, err := pc.postService.CreatePost(req.Content, userID, req.Tags)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -157,7 +152,7 @@ func (pc *PostController) ListPosts(c *gin.Context) {
 		filters["status"] = status
 	}
 	if search := c.Query("search"); search != "" {
-		filters["title LIKE ?"] = "%" + search + "%"
+		filters["search"] = search
 	}
 	if tagfilter := c.Query("tagfilter"); tagfilter != "" {
 		filters["tagfilter"] = tagfilter
@@ -202,12 +197,17 @@ func (pc *PostController) GetAllPosts(c *gin.Context) {
 	if status := c.Query("status"); status != "" {
 		filters["status"] = status
 	}
-	if title := c.Query("title"); title != "" {
-		filters["title"] = title
-	}
 	if page := c.Query("page"); page != "" {
 		if p, err := strconv.Atoi(page); err == nil && p > 0 {
 			filters["page"] = p
+		}
+	}
+	//if tagfilter := c.Query("tagfilter"); tagfilter != "" {
+	//	filters["tagfilter"] = tagfilter
+	//}
+	if tagfilter := c.Query("tagfilter"); tagfilter != "" {
+		if tagfilter, err := strconv.ParseUint(tagfilter, 10, 64); err == nil {
+			filters["tagfilter"] = uint(tagfilter)
 		}
 	}
 	if limit := c.Query("limit"); limit != "" {

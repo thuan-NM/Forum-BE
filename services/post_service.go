@@ -14,7 +14,7 @@ import (
 )
 
 type PostService interface {
-	CreatePost(content string, userID uint, status models.PostStatus, tagNames []string) (*models.Post, error)
+	CreatePost(content string, userID uint, tagId []uint) (*models.Post, error)
 	GetPostByID(id uint) (*models.Post, error)
 	GetPostByIDSimple(id uint) (*models.Post, error)
 	DeletePost(id uint) error
@@ -33,21 +33,17 @@ func NewPostService(postRepo repositories.PostRepository, redisClient *redis.Cli
 	return &postService{postRepo: postRepo, redisClient: redisClient}
 }
 
-func (s *postService) CreatePost(content string, userID uint, status models.PostStatus, tagNames []string) (*models.Post, error) {
+func (s *postService) CreatePost(content string, userID uint, tagId []uint) (*models.Post, error) {
 	if content == "" {
 		return nil, errors.New("content is required")
-	}
-	if !IsValidStatus(string(status)) {
-		return nil, errors.New("invalid status")
 	}
 
 	post := &models.Post{
 		Content: content,
 		UserID:  userID,
-		Status:  status,
 	}
 
-	if err := s.postRepo.CreatePost(post, tagNames); err != nil {
+	if err := s.postRepo.CreatePost(post, tagId); err != nil {
 		log.Printf("Failed to create post: %v", err)
 		return nil, err
 	}
