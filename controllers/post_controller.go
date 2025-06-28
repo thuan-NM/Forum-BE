@@ -19,8 +19,10 @@ func NewPostController(p services.PostService) *PostController {
 
 func (pc *PostController) CreatePost(c *gin.Context) {
 	var req struct {
-		Content string `json:"content" binding:"required"`
-		Status  string `json:"status"`
+		Title   string   `json:"title"`
+		Content string   `json:"content" binding:"required"`
+		Status  string   `json:"status"`
+		Tags    []string `json:"tags"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -34,37 +36,42 @@ func (pc *PostController) CreatePost(c *gin.Context) {
 		status = string(models.Pending)
 	}
 
-	post, err := pc.postService.CreatePost(req.Content, userID, models.PostStatus(status))
+	post, err := pc.postService.CreatePost(req.Content, userID, models.PostStatus(status), req.Tags)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Post created successfully", "post": responses.ToPostResponse(post)})
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Post created successfully",
+		"post":    responses.ToPostResponse(post),
+	})
 }
 
 func (pc *PostController) GetPostById(c *gin.Context) {
 	idParam := c.Param("id")
-	id, err := strconv.Atoi(idParam)
+	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid post id"})
 		return
 	}
 
 	post, err := pc.postService.GetPostByID(uint(id))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Post not found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "post not found"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"post": responses.ToPostResponse(post)})
+	c.JSON(http.StatusOK, gin.H{
+		"post": responses.ToPostResponse(post),
+	})
 }
 
 func (pc *PostController) DeletePost(c *gin.Context) {
 	idParam := c.Param("id")
-	id, err := strconv.Atoi(idParam)
+	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid post id"})
 		return
 	}
 
@@ -72,20 +79,24 @@ func (pc *PostController) DeletePost(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "Post deleted successfully"})
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Post deleted successfully",
+	})
 }
 
 func (pc *PostController) UpdatePost(c *gin.Context) {
 	idParam := c.Param("id")
-	id, err := strconv.Atoi(idParam)
+	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid post id"})
 		return
 	}
 
 	var req struct {
-		Content string `json:"content" binding:"required"`
-		Status  string `json:"status"`
+		Title   string   `json:"title"`
+		Content string   `json:"content"`
+		Status  string   `json:"status"`
+		Tags    []string `json:"tags"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -93,37 +104,82 @@ func (pc *PostController) UpdatePost(c *gin.Context) {
 		return
 	}
 
-	post, err := pc.postService.UpdatePost(uint(id), req.Content, models.PostStatus(req.Status))
+	post, err := pc.postService.UpdatePost(uint(id), req.Content, models.PostStatus(req.Status), req.Tags)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Post update successfully", "post": responses.ToPostResponse(post)})
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Post updated successfully",
+		"post":    responses.ToPostResponse(post),
+	})
+}
+
+func (pc *PostController) UpdatePostStatus(c *gin.Context) {
+	idParam := c.Param("id")
+	id, err := strconv.ParseUint(idParam, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid post id"})
+		return
+	}
+
+	var req struct {
+		Status string `json:"status" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	post, err := pc.postService.UpdatePostStatus(uint(id), req.Status)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Post status updated successfully",
+		"post":    responses.ToPostResponse(post),
+	})
 }
 
 func (pc *PostController) ListPosts(c *gin.Context) {
 	filters := make(map[string]interface{})
 
-	userID := c.Query("user_id")
-	if userID != "" {
-		uID, err := strconv.Atoi(userID)
-		if err == nil {
+	if userID := c.Query("user_id"); userID != "" {
+		if uID, err := strconv.ParseUint(userID, 10, 64); err == nil {
 			filters["user_id"] = uint(uID)
 		}
 	}
-	status := c.Query("status")
-	if status != "" {
+	if status := c.Query("status"); status != "" {
 		filters["status"] = status
 	}
-	search := c.Query("search")
-	if search != "" {
-		filters["content LIKE ?"] = "%" + search + "%"
+	if search := c.Query("search"); search != "" {
+		filters["title LIKE ?"] = "%" + search + "%"
+	}
+	if tagfilter := c.Query("tagfilter"); tagfilter != "" {
+		filters["tagfilter"] = tagfilter
+	}
+	//if title := c.Query("title"); title != "" {
+	//	filters["title"] = title
+	//}
+	if page := c.Query("page"); page != "" {
+		if p, err := strconv.Atoi(page); err == nil && p > 0 {
+			filters["page"] = p
+		}
+	}
+	if limit := c.Query("limit"); limit != "" {
+		if l, err := strconv.Atoi(limit); err == nil && l > 0 {
+			filters["limit"] = l
+		}
 	}
 
-	posts, err := pc.postService.ListPosts(filters)
+	posts, total, err := pc.postService.ListPosts(filters)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list posts"})
+		return
 	}
 
 	var response []responses.PostResponse
@@ -131,5 +187,48 @@ func (pc *PostController) ListPosts(c *gin.Context) {
 		response = append(response, responses.ToPostResponse(&post))
 	}
 
-	c.JSON(http.StatusOK, gin.H{"posts": response})
+	c.JSON(http.StatusOK, gin.H{
+		"posts": response,
+		"total": total,
+	})
+}
+
+func (pc *PostController) GetAllPosts(c *gin.Context) {
+	filters := make(map[string]interface{})
+
+	if search := c.Query("search"); search != "" {
+		filters["search"] = search
+	}
+	if status := c.Query("status"); status != "" {
+		filters["status"] = status
+	}
+	if title := c.Query("title"); title != "" {
+		filters["title"] = title
+	}
+	if page := c.Query("page"); page != "" {
+		if p, err := strconv.Atoi(page); err == nil && p > 0 {
+			filters["page"] = p
+		}
+	}
+	if limit := c.Query("limit"); limit != "" {
+		if l, err := strconv.Atoi(limit); err == nil && l > 0 {
+			filters["limit"] = l
+		}
+	}
+
+	posts, total, err := pc.postService.GetAllPosts(filters)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get all posts"})
+		return
+	}
+
+	var response []responses.PostResponse
+	for _, post := range posts {
+		response = append(response, responses.ToPostResponse(&post))
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"posts": response,
+		"total": total,
+	})
 }

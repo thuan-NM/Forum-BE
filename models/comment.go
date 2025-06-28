@@ -25,7 +25,6 @@ type Comment struct {
 	Post        *Post        `json:"post,omitempty" gorm:"foreignKey:PostID;references:ID"`
 	Answer      *Answer      `json:"answer,omitempty" gorm:"foreignKey:AnswerID;references:ID"`
 	Votes       []Vote       `json:"votes,omitempty" gorm:"polymorphic:Votable;"`
-	Reports     []Report     `json:"reports,omitempty" gorm:"polymorphic:Entity;"`
 	Attachments []Attachment `json:"attachments,omitempty" gorm:"polymorphic:Entity;"`
 	Parent      *Comment     `json:"parent,omitempty" gorm:"foreignKey:ParentID"`
 	Children    []Comment    `json:"children,omitempty" gorm:"foreignKey:ParentID"`

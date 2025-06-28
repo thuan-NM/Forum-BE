@@ -6,6 +6,7 @@ import (
 	"Forum_BE/services"
 	"Forum_BE/utils"
 	"github.com/gin-gonic/gin"
+	"log"
 	"net/http"
 	"strings"
 )
@@ -18,12 +19,13 @@ func NewAuthController(a services.AuthService) *AuthController {
 	return &AuthController{authService: a}
 }
 
-// Register xử lý yêu cầu đăng ký người dùng mới
 func (ac *AuthController) Register(c *gin.Context) {
 	var req struct {
-		Username string `json:"username" binding:"required"`
-		Email    string `json:"email" binding:"required,email"`
-		Password string `json:"password" binding:"required,min=6"`
+		Username      string `json:"username" binding:"required"`
+		Email         string `json:"email" binding:"required,email"`
+		Password      string `json:"password" binding:"required,min=6"`
+		FullName      string `json:"fullName" binding:"required"`
+		EmailVerified bool   `json:"emailVerified" binding:"required" default:"false"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -31,7 +33,7 @@ func (ac *AuthController) Register(c *gin.Context) {
 		return
 	}
 
-	user, err := ac.authService.Register(req.Username, req.Email, req.Password)
+	user, err := ac.authService.Register(req.Username, req.Email, req.Password, req.FullName, req.EmailVerified)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -43,7 +45,6 @@ func (ac *AuthController) Register(c *gin.Context) {
 	})
 }
 
-// Login xử lý yêu cầu đăng nhập
 func (ac *AuthController) Login(c *gin.Context) {
 	var req struct {
 		Email    string `json:"email" binding:"required"`
@@ -64,12 +65,36 @@ func (ac *AuthController) Login(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Login successful",
 		"token":   token,
-		"user":    user,
+		"user":    responses.ToUserResponse(user),
 	})
 }
-func (ac *AuthController) ResetToken(c *gin.Context) {
-	// Trích xuất token từ header Authorization
 
+func (ac *AuthController) Logout(c *gin.Context) {
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header missing"})
+		c.Abort()
+		return
+	}
+
+	tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+	claims, err := utils.ParseJWT(tokenString, config.LoadConfig().JWTSecret)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+		return
+	}
+
+	userID := claims.UserID
+
+	if err := ac.authService.Logout(userID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to logout"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Logout successful"})
+}
+
+func (ac *AuthController) ResetToken(c *gin.Context) {
 	authHeader := c.GetHeader("Authorization")
 	if authHeader == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header missing"})
@@ -83,9 +108,8 @@ func (ac *AuthController) ResetToken(c *gin.Context) {
 		return
 	}
 
-	userID := claims.UserID // Giả sử bạn đã lưu userID trong claims
+	userID := claims.UserID
 
-	// Reset token
 	newToken, err := ac.authService.ResetToken(userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to reset token"})
@@ -93,4 +117,76 @@ func (ac *AuthController) ResetToken(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"token": newToken})
+}
+func (ac *AuthController) VerifyEmail(c *gin.Context) {
+	token := c.Query("token")
+	if token == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing verification token"})
+		return
+	}
+	log.Printf(token)
+	_, err := ac.authService.VerifyEmailToken(token)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Email verified successfully. You can now log in."})
+}
+func (ac *AuthController) ResendVerificationEmail(c *gin.Context) {
+	var req struct {
+		Email string `json:"email" binding:"required,email"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid email"})
+		return
+	}
+
+	err := ac.authService.ResendVerificationEmail(req.Email)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Verification email resent successfully"})
+}
+func (ac *AuthController) GoogleLoginWithToken(c *gin.Context) {
+	var req struct {
+		IDToken string `json:"idToken" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request: " + err.Error()})
+		return
+	}
+
+	token, user, err := ac.authService.HandleGoogleIDToken(req.IDToken)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Google login successful",
+		"token":   token,
+		"user":    responses.ToUserResponse(user),
+	})
+
+}
+
+func (ac *AuthController) GetUser(c *gin.Context) {
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Missing Authorization header"})
+		return
+	}
+
+	token := strings.TrimPrefix(authHeader, "Bearer ")
+	user, err := ac.authService.GetUserFromToken(token)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"user": user})
 }

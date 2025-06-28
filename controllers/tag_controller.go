@@ -16,10 +16,10 @@ func NewTagController(t services.TagService) *TagController {
 	return &TagController{tagService: t}
 }
 
-// CreateTag xử lý yêu cầu tạo tag mới
 func (tc *TagController) CreateTag(c *gin.Context) {
 	var req struct {
-		Name string `json:"name" binding:"required"`
+		Name        string `json:"name" binding:"required"`
+		Description string `json:"description"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -27,7 +27,7 @@ func (tc *TagController) CreateTag(c *gin.Context) {
 		return
 	}
 
-	tag, err := tc.tagService.CreateTag(req.Name)
+	tag, err := tc.tagService.CreateTag(req.Name, req.Description)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -39,7 +39,6 @@ func (tc *TagController) CreateTag(c *gin.Context) {
 	})
 }
 
-// GetTag xử lý yêu cầu lấy tag theo ID
 func (tc *TagController) GetTag(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
@@ -59,7 +58,6 @@ func (tc *TagController) GetTag(c *gin.Context) {
 	})
 }
 
-// EditTag xử lý yêu cầu cập nhật tag
 func (tc *TagController) EditTag(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
@@ -69,7 +67,8 @@ func (tc *TagController) EditTag(c *gin.Context) {
 	}
 
 	var req struct {
-		Name string `json:"name" binding:"required"`
+		Name        string `json:"name"`
+		Description string `json:"description"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -77,7 +76,7 @@ func (tc *TagController) EditTag(c *gin.Context) {
 		return
 	}
 
-	tag, err := tc.tagService.UpdateTag(uint(id), req.Name)
+	tag, err := tc.tagService.UpdateTag(uint(id), req.Name, req.Description)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -89,7 +88,6 @@ func (tc *TagController) EditTag(c *gin.Context) {
 	})
 }
 
-// DeleteTag xử lý yêu cầu xóa tag
 func (tc *TagController) DeleteTag(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
@@ -108,11 +106,75 @@ func (tc *TagController) DeleteTag(c *gin.Context) {
 	})
 }
 
-// ListTags xử lý yêu cầu liệt kê tất cả các tag
 func (tc *TagController) ListTags(c *gin.Context) {
-	tags, err := tc.tagService.ListTags()
+	filters := make(map[string]interface{})
+
+	if search := c.Query("search"); search != "" {
+		filters["search"] = search
+	}
+	if page := c.Query("page"); page != "" {
+		if p, err := strconv.Atoi(page); err == nil {
+			filters["page"] = p
+		}
+	}
+	if limit := c.Query("limit"); limit != "" {
+		if l, err := strconv.Atoi(limit); err == nil {
+			filters["limit"] = l
+		}
+	}
+
+	tags, total, err := tc.tagService.ListTags(filters)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list tags"})
+		return
+	}
+
+	var responseTags []responses.TagResponse
+	for _, tag := range tags {
+		responseTags = append(responseTags, responses.ToTagResponse(&tag))
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"tags":  responseTags,
+		"total": total,
+	})
+}
+
+func (tc *TagController) GetTagsByPostID(c *gin.Context) {
+	postIDParam := c.Param("post_id")
+	postID, err := strconv.ParseUint(postIDParam, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid post id"})
+		return
+	}
+
+	tags, err := tc.tagService.GetTagsByPostID(uint(postID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get tags for post"})
+		return
+	}
+
+	var responseTags []responses.TagResponse
+	for _, tag := range tags {
+		responseTags = append(responseTags, responses.ToTagResponse(&tag))
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"tags": responseTags,
+	})
+}
+
+func (tc *TagController) GetTagsByAnswerID(c *gin.Context) {
+	answerIDParam := c.Param("answer_id")
+	answerID, err := strconv.ParseUint(answerIDParam, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid answer id"})
+		return
+	}
+
+	tags, err := tc.tagService.GetTagsByAnswerID(uint(answerID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get tags for answer"})
 		return
 	}
 

@@ -11,17 +11,17 @@ import (
 
 type QuestionController struct {
 	questionService services.QuestionService
-	voteService     services.VoteService
 }
 
-func NewQuestionController(q services.QuestionService, v services.VoteService) *QuestionController {
-	return &QuestionController{questionService: q, voteService: v}
+func NewQuestionController(q services.QuestionService) *QuestionController {
+	return &QuestionController{questionService: q}
 }
 
-// CreateQuestion xử lý yêu cầu tạo question mới
 func (qc *QuestionController) CreateQuestion(c *gin.Context) {
 	var req struct {
-		Title string `json:"title" binding:"required"`
+		Title       string `json:"title" binding:"required"`
+		Description string `json:"description"`
+		TopicID     uint   `json:"topic_id"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -29,32 +29,31 @@ func (qc *QuestionController) CreateQuestion(c *gin.Context) {
 		return
 	}
 
-	userID := c.GetUint("user_id") // Middleware đã thêm user_id vào context
+	userID := c.GetUint("user_id")
 
-	question, err := qc.questionService.CreateQuestion(req.Title, userID)
+	question, err := qc.questionService.CreateQuestion(req.Title, req.Description, userID, req.TopicID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message":  "Question created successfully and pending approval",
+		"message":  "Câu hỏi được tạo thành công và đang chờ phê duyệt",
 		"question": responses.ToQuestionResponse(question),
 	})
 }
 
-// GetQuestion xử lý yêu cầu lấy question theo ID
 func (qc *QuestionController) GetQuestion(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid question id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID câu hỏi không hợp lệ"})
 		return
 	}
 
 	question, err := qc.questionService.GetQuestionByID(uint(id))
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "question not found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "Không tìm thấy câu hỏi"})
 		return
 	}
 
@@ -63,17 +62,18 @@ func (qc *QuestionController) GetQuestion(c *gin.Context) {
 	})
 }
 
-// UpdateQuestion xử lý yêu cầu cập nhật question
 func (qc *QuestionController) UpdateQuestion(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid question id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID câu hỏi không hợp lệ"})
 		return
 	}
 
 	var req struct {
-		Title string `json:"title"`
+		Title       string `json:"title"`
+		Description string `json:"description"`
+		TopicID     uint   `json:"topic_id"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -81,24 +81,23 @@ func (qc *QuestionController) UpdateQuestion(c *gin.Context) {
 		return
 	}
 
-	question, err := qc.questionService.UpdateQuestion(uint(id), req.Title)
+	question, err := qc.questionService.UpdateQuestion(uint(id), req.Title, req.Description, req.TopicID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message":  "Question updated successfully",
+		"message":  "Câu hỏi được cập nhật thành công",
 		"question": responses.ToQuestionResponse(question),
 	})
 }
 
-// DeleteQuestion xử lý yêu cầu xóa question
 func (qc *QuestionController) DeleteQuestion(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid question id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID câu hỏi không hợp lệ"})
 		return
 	}
 
@@ -108,41 +107,48 @@ func (qc *QuestionController) DeleteQuestion(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Question deleted successfully",
+		"message": "Câu hỏi đã được xóa thành công",
 	})
 }
 
-// ListQuestions xử lý yêu cầu liệt kê tất cả các question với các bộ lọc
 func (qc *QuestionController) ListQuestions(c *gin.Context) {
 	filters := make(map[string]interface{})
-	userIDRaw, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+	userIDRaw, ok := c.Get("user_id")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Không được phép"})
 		return
 	}
 	userID := userIDRaw.(uint)
 
-	status := c.Query("status")
-	if status != "" {
+	if search := c.Query("search"); search != "" {
+		filters["title_search"] = search
+	}
+	if status := c.Query("status"); status != "" {
 		filters["status"] = status
 	}
-
-	search := c.Query("search")
-	if search != "" {
-		filters["title_search"] = search
+	if interstatus := c.Query("interstatus"); interstatus != "" {
+		filters["interstatus"] = interstatus
+	}
+	if topicID := c.Query("topic_id"); topicID != "" {
+		if id, err := strconv.ParseUint(topicID, 10, 64); err == nil {
+			filters["topic_id"] = uint(id)
+		}
+	}
+	if page := c.Query("page"); page != "" {
+		if p, err := strconv.Atoi(page); err == nil {
+			filters["page"] = p
+		}
+	}
+	if limit := c.Query("limit"); limit != "" {
+		if l, err := strconv.Atoi(limit); err == nil {
+			filters["limit"] = l
+		}
 	}
 	filters["user_id"] = userID
 
-	tagID := c.Query("tag_id")
-	if tagID != "" {
-		if id, err := strconv.ParseUint(tagID, 10, 64); err == nil {
-			filters["tag_id"] = uint(id)
-		}
-	}
-
-	questions, err := qc.questionService.ListQuestions(filters)
+	questions, total, err := qc.questionService.ListQuestions(filters)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list questions"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể liệt kê danh sách câu hỏi"})
 		return
 	}
 
@@ -153,64 +159,96 @@ func (qc *QuestionController) ListQuestions(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"questions": responseQuestions,
+		"total":     total,
 	})
 }
 
-// ApproveQuestion xử lý yêu cầu duyệt question
-func (qc *QuestionController) ApproveQuestion(c *gin.Context) {
+func (qc *QuestionController) UpdateQuestionStatus(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid question id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID câu hỏi không hợp lệ"})
 		return
 	}
 
-	question, err := qc.questionService.ApproveQuestion(uint(id))
+	var req struct {
+		Status string `json:"status" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	question, err := qc.questionService.UpdateQuestionStatus(uint(id), req.Status)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message":  "Question approved successfully",
+		"message":  "Trạng thái phê duyệt được cập nhật thành công",
 		"question": responses.ToQuestionResponse(question),
 	})
 }
 
-// RejectQuestion xử lý yêu cầu từ chối question
-func (qc *QuestionController) RejectQuestion(c *gin.Context) {
+func (qc *QuestionController) UpdateInteractionStatus(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid question id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID câu hỏi không hợp lệ"})
 		return
 	}
 
-	question, err := qc.questionService.RejectQuestion(uint(id))
+	var req struct {
+		InteractionStatus string `json:"interaction_status" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	userID := c.GetUint("user_id")
+
+	question, err := qc.questionService.UpdateInteractionStatus(uint(id), models.InteractionStatus(req.InteractionStatus), userID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message":  "Question rejected successfully",
+		"message":  "Trạng thái tương tác được cập nhật thành công",
 		"question": responses.ToQuestionResponse(question),
 	})
 }
 
-// SuggestQuestions gợi ý câu hỏi
 func (qc *QuestionController) SuggestQuestions(c *gin.Context) {
-	//userID := c.GetUint("user_id")
 	filters := map[string]interface{}{
 		"status": models.StatusApproved,
+	}
+	userIDRaw, ok := c.Get("user_id")
+	if ok {
+		filters["user_id"] = userIDRaw.(uint)
 	}
 	sort := c.Query("sort")
 	if sort == "popular" {
 		filters["sort"] = "follow_count"
 	}
-	questions, err := qc.questionService.ListQuestions(filters)
+	if page := c.Query("page"); page != "" {
+		if p, err := strconv.Atoi(page); err == nil {
+			filters["page"] = p
+		}
+	}
+	if limit := c.Query("limit"); limit != "" {
+		if l, err := strconv.Atoi(limit); err == nil {
+			filters["limit"] = l
+		}
+	}
+
+	questions, total, err := qc.questionService.ListQuestions(filters)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to suggest questions"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể gợi ý câu hỏi"})
 		return
 	}
 
@@ -221,5 +259,6 @@ func (qc *QuestionController) SuggestQuestions(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"questions": responseQuestions,
+		"total":     total,
 	})
 }

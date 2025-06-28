@@ -18,6 +18,8 @@ type AnswerResponse struct {
 	HasEditHistory bool              `gorm:"default:false" json:"has_edit_history"`
 	Author         models.User       `json:"author"`
 	Question       models.Question   `json:"question"`
+	ReactionCount  int               `json:"reactionsCount"`
+	Tags           []TagResponse     `json:"tags,omitempty"` // Thêm trường Tags
 }
 
 func ToAnswerResponse(answer *models.Answer) AnswerResponse {
@@ -25,7 +27,10 @@ func ToAnswerResponse(answer *models.Answer) AnswerResponse {
 	for _, comment := range answer.Comments {
 		comments = append(comments, ToCommentResponse(&comment))
 	}
-
+	var tags []TagResponse
+	for _, tag := range answer.Tags {
+		tags = append(tags, TagResponse{ID: tag.ID, Name: tag.Name}) // Giả sử TagResponse có ID và Name
+	}
 	return AnswerResponse{
 		ID:             answer.ID,
 		Content:        answer.Content,
@@ -35,9 +40,11 @@ func ToAnswerResponse(answer *models.Answer) AnswerResponse {
 		Accepted:       answer.Accepted,
 		RootCommentID:  answer.RootCommentID,
 		HasEditHistory: answer.HasEditHistory,
+		ReactionCount:  len(answer.Reactions),
 		Comments:       comments,
 		Status:         answer.Status,
 		Author:         answer.User,
 		Question:       answer.Question,
+		Tags:           tags,
 	}
 }

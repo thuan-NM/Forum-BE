@@ -14,11 +14,11 @@ import (
 )
 
 type AnswerService interface {
-	CreateAnswer(content string, userID uint, questionID uint) (*models.Answer, error)
+	CreateAnswer(content string, userID uint, questionID uint, tagNames []string) (*models.Answer, error)
 	GetAnswerByID(id uint) (*models.Answer, error)
 	UpdateAnswer(id uint, content string) (*models.Answer, error)
 	DeleteAnswer(id uint) error
-	ListAnswers(filters map[string]interface{}) ([]models.Answer, error)
+	ListAnswers(filters map[string]interface{}) ([]models.Answer, int, error)
 	GetAllAnswers(filters map[string]interface{}) ([]models.Answer, int, error)
 	UpdateAnswerStatus(id uint, status string) (*models.Answer, error)
 	AcceptAnswer(id uint, userID uint) (*models.Answer, error)
@@ -41,7 +41,6 @@ func NewAnswerService(aRepo repositories.AnswerRepository, qRepo repositories.Qu
 }
 
 func (s *answerService) GetAllAnswers(filters map[string]interface{}) ([]models.Answer, int, error) {
-
 	cacheKey := utils.GenerateCacheKey("answers:all", 0, filters)
 	ctx := context.Background()
 
@@ -65,7 +64,7 @@ func (s *answerService) GetAllAnswers(filters map[string]interface{}) ([]models.
 
 	return answers, total, nil
 }
-func (s *answerService) CreateAnswer(content string, userID uint, questionID uint) (*models.Answer, error) {
+func (s *answerService) CreateAnswer(content string, userID uint, questionID uint, tagNames []string) (*models.Answer, error) {
 	if content == "" {
 		return nil, errors.New("content is required")
 	}
@@ -87,7 +86,7 @@ func (s *answerService) CreateAnswer(content string, userID uint, questionID uin
 		QuestionID: questionID,
 	}
 
-	if err := s.answerRepo.CreateAnswer(answer); err != nil {
+	if err := s.answerRepo.CreateAnswer(answer, tagNames); err != nil {
 		log.Printf("Failed to create answer for question %d: %v", questionID, err)
 		return nil, err
 	}
@@ -102,7 +101,8 @@ func (s *answerService) CreateAnswer(content string, userID uint, questionID uin
 	}
 
 	s.invalidateCache("questions:*")
-	log.Printf("Cache invalidated for questions:* due to new answer for question %d", questionID)
+	s.invalidateCache("tags:*") // Thêm invalidation cho tag cache
+	log.Printf("Cache invalidated for questions:* and tags:* due to new answer for question %d", questionID)
 
 	log.Printf("Answer %d created successfully for question %d", answer.ID, questionID)
 	return answer, nil
@@ -185,27 +185,46 @@ func (s *answerService) DeleteAnswer(id uint) error {
 	s.invalidateCache(fmt.Sprintf("answers:question:%d:*", answer.QuestionID))
 	s.invalidateCache("answers:all:*")
 	s.invalidateCache("questions:*")
-	log.Printf("Cache invalidated for questions:* due to deleted answer for question %d", answer.QuestionID)
+	s.invalidateCache("tags:*") // Thêm invalidation cho tag cache
+	log.Printf("Cache invalidated for questions:* and tags:* due to deleted answer for question %d", answer.QuestionID)
 
 	return nil
 }
 
-func (s *answerService) ListAnswers(filters map[string]interface{}) ([]models.Answer, error) {
+func (s *answerService) ListAnswers(filters map[string]interface{}) ([]models.Answer, int, error) {
 	questionID, ok := filters["question_id"].(uint)
 	if !ok {
-		return nil, errors.New("question_id is required")
+		return nil, 0, errors.New("question_id is required")
 	}
 
-	cacheKey := utils.GenerateCacheKey("answers:question", questionID, filters)
+	limit, _ := filters["limit"].(int)
+	page, _ := filters["page"].(int)
+	if limit == 0 {
+		limit = 10 // Default limit
+	}
+	if page == 0 {
+		page = 1 // Default page
+	}
+
+	cacheKey := utils.GenerateCacheKey("answers:question", questionID, map[string]interface{}{
+		"question_id": questionID,
+		"user_id":     filters["user_id"],
+		"search":      filters["content LIKE ?"],
+		"limit":       limit,
+		"page":        page,
+	})
 	ctx := context.Background()
 
-	var answers []models.Answer
 	for attempt := 1; attempt <= 3; attempt++ {
 		cached, err := s.redisClient.Get(ctx, cacheKey).Result()
 		if err == nil {
-			if err := json.Unmarshal([]byte(cached), &answers); err == nil {
+			var cachedData struct {
+				Answers []models.Answer
+				Total   int
+			}
+			if err := json.Unmarshal([]byte(cached), &cachedData); err == nil {
 				log.Printf("Cache hit for answers:question:%d", questionID)
-				return answers, nil
+				return cachedData.Answers, cachedData.Total, nil
 			}
 			log.Printf("Failed to unmarshal cache for question %d: %v", questionID, err)
 		}
@@ -217,20 +236,24 @@ func (s *answerService) ListAnswers(filters map[string]interface{}) ([]models.An
 		break
 	}
 
-	answers, err := s.answerRepo.ListAnswers(filters)
+	answers, total, err := s.answerRepo.ListAnswers(filters)
 	if err != nil {
 		log.Printf("Failed to list answers for question %d: %v", questionID, err)
-		return nil, err
+		return nil, 0, err
 	}
 
-	data, err := json.Marshal(answers)
+	cacheData := struct {
+		Answers []models.Answer
+		Total   int
+	}{Answers: answers, Total: total}
+	data, err := json.Marshal(cacheData)
 	if err == nil {
 		if err := s.redisClient.Set(ctx, cacheKey, data, 2*time.Minute).Err(); err != nil {
 			log.Printf("Failed to set cache for answers:question:%d: %v", questionID, err)
 		}
 	}
 
-	return answers, nil
+	return answers, total, nil
 }
 
 func (s *answerService) invalidateCache(pattern string) {
@@ -282,6 +305,7 @@ func (s *answerService) UpdateAnswerStatus(id uint, status string) (*models.Answ
 
 	s.invalidateCache(fmt.Sprintf("answer:%d", id))
 	s.invalidateCache(fmt.Sprintf("answers:question:%d:*", answer.QuestionID))
+	s.invalidateCache("tags:*") // Thêm invalidation cho tag cache
 
 	return answer, nil
 }
@@ -317,6 +341,7 @@ func (s *answerService) AcceptAnswer(id uint, userID uint) (*models.Answer, erro
 	s.invalidateCache(fmt.Sprintf("answer:%d", id))
 	s.invalidateCache(fmt.Sprintf("answers:question:%d:*", answer.QuestionID))
 	s.invalidateCache("questions:*")
+	s.invalidateCache("tags:*") // Thêm invalidation cho tag cache
 	log.Printf("Answer %d accepted successfully for question %d", id, answer.QuestionID)
 	return answer, nil
 }

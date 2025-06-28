@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"Forum_BE/config"
 	//"Forum_BE/config"
 	"Forum_BE/middlewares"
 	"Forum_BE/models"
@@ -18,7 +19,7 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, jwtSecret string, redisClient *redi
 	permService := services.NewPermissionService(permissionRepo, userRepo)
 
 	var permissions []models.Permission
-	//config.InitPermissions()
+	config.InitPermissions()
 
 	for _, perm := range permissions {
 		existingPerm, err := permService.GetPermission(string(perm.Role), perm.Resource, perm.Action)
@@ -34,23 +35,23 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, jwtSecret string, redisClient *redi
 		}
 	}
 
-	AuthRoutes(r, db, jwtSecret)
+	AuthRoutes(r, db, jwtSecret, redisClient)
 
-	// Protected routes
 	authMiddleware := middlewares.AuthMiddleware(jwtSecret)
 	authorized := r.Group("/api")
 	authorized.Use(authMiddleware)
 	{
-		UserRoutes(db, authorized, permService)
+		UserRoutes(db, authorized, permService, redisClient)
 		QuestionRoutes(db, authorized, permService, redisClient)
 		PostRoutes(db, authorized, permService, redisClient)
 		AnswerRoutes(db, authorized, permService, redisClient)
 		CommentRoutes(db, authorized, permService, redisClient)
-		TagRoutes(db, authorized, permService)
+		TagRoutes(db, authorized, permService, redisClient)
 		TopicRoutes(db, authorized, permService, redisClient)
 		FollowRoutes(db, authorized, permService, redisClient)
 		GroupRoutes(db, authorized, permService, redisClient)
 		VoteRoutes(db, authorized, permService)
+		ReportRoutes(db, authorized, permService, redisClient)
 		PermissionRoutes(authorized, permService)
 		PassRoutes(db, authorized, permService, redisClient)
 	}

@@ -10,11 +10,11 @@ import (
 )
 
 type AnswerRepository interface {
-	CreateAnswer(answer *models.Answer) error
+	CreateAnswer(answer *models.Answer, tagNames []string) error
 	GetAnswerByID(id uint) (*models.Answer, error)
 	UpdateAnswer(answer *models.Answer) error
 	DeleteAnswer(id uint) error
-	ListAnswers(filters map[string]interface{}) ([]models.Answer, error)
+	ListAnswers(filters map[string]interface{}) ([]models.Answer, int, error)
 	GetAllAnswers(filters map[string]interface{}) ([]models.Answer, int, error)
 	UpdateAnswerStatus(id uint, status string) error
 	GetAnswerByIDSimple(id uint) (*models.Answer, error)
@@ -66,7 +66,7 @@ func (r *answerRepository) GetAllAnswers(filters map[string]interface{}) ([]mode
 		return nil, 0, err
 	}
 
-	query = query.Offset(offset).Limit(limit).Preload("User").Preload("Question").Preload("Comments").Preload("Votes")
+	query = query.Offset(offset).Limit(limit).Preload("User").Preload("Question").Preload("Comments").Preload("Tags")
 	if err := query.Find(&answers).Error; err != nil {
 		log.Printf("Error fetching answers: %v", err)
 		return nil, 0, err
@@ -76,9 +76,42 @@ func (r *answerRepository) GetAllAnswers(filters map[string]interface{}) ([]mode
 	return answers, int(total), nil
 }
 
-func (r *answerRepository) CreateAnswer(answer *models.Answer) error {
+func (r *answerRepository) CreateAnswer(answer *models.Answer, tagNames []string) error {
 	answer.PlainContent = utils.StripHTML(answer.Content)
-	return r.db.Create(answer).Error
+
+	tx := r.db.Begin()
+	if err := tx.Error; err != nil {
+		return err
+	}
+
+	if err := tx.Create(answer).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	if len(tagNames) > 0 {
+		var tags []models.Tag
+		for _, name := range tagNames {
+			name = strings.TrimSpace(strings.ToLower(name))
+			if name == "" {
+				continue
+			}
+			var tag models.Tag
+			if err := tx.Where("name = ?", name).FirstOrCreate(&tag, models.Tag{Name: name}).Error; err != nil {
+				tx.Rollback()
+				return err
+			}
+			tags = append(tags, tag)
+		}
+		if len(tags) > 0 {
+			if err := tx.Model(answer).Association("Tags").Append(tags); err != nil {
+				tx.Rollback()
+				return err
+			}
+		}
+	}
+
+	return tx.Commit().Error
 }
 
 func (r *answerRepository) GetAnswerByID(id uint) (*models.Answer, error) {
@@ -86,6 +119,7 @@ func (r *answerRepository) GetAnswerByID(id uint) (*models.Answer, error) {
 	err := r.db.Preload("User").
 		Preload("Question").
 		Preload("Comments").
+		Preload("Tags").
 		First(&answer, id).Error
 	if err != nil {
 		return nil, err
@@ -111,22 +145,50 @@ func (r *answerRepository) DeleteAnswer(id uint) error {
 	return r.db.Delete(&models.Answer{}, id).Error
 }
 
-func (r *answerRepository) ListAnswers(filters map[string]interface{}) ([]models.Answer, error) {
+func (r *answerRepository) ListAnswers(filters map[string]interface{}) ([]models.Answer, int, error) {
 	var answers []models.Answer
-	query := r.db.Preload("User").Preload("Question").Preload("Comments").Preload("Votes")
 
+	// Build count query
+	countQuery := r.db.Model(&models.Answer{})
 	if filters != nil {
 		for key, value := range filters {
-			query = query.Where(key+" = ?", value)
+			if key != "limit" && key != "page" {
+				countQuery = countQuery.Where(key, value)
+			}
 		}
+	}
+	var total int64
+	if err := countQuery.Count(&total).Error; err != nil {
+		log.Printf("Error counting answers: %v", err)
+		return nil, 0, err
+	}
+
+	// Build data query
+	query := r.db.Preload("User").Preload("Question").Preload("Comments").Preload("Tags")
+	if filters != nil {
+		for key, value := range filters {
+			if key != "limit" && key != "page" {
+				query = query.Where(key, value)
+			}
+		}
+	}
+
+	// Apply pagination
+	if limit, ok := filters["limit"].(int); ok && limit > 0 {
+		query = query.Limit(limit)
+	}
+	if page, ok := filters["page"].(int); ok && page > 0 {
+		offset := (page - 1) * filters["limit"].(int)
+		query = query.Offset(offset)
 	}
 
 	err := query.Find(&answers).Error
 	if err != nil {
-		return nil, err
+		log.Printf("Error fetching answers: %v", err)
+		return nil, 0, err
 	}
 
-	return answers, nil
+	return answers, int(total), nil
 }
 
 func (r *answerRepository) UpdateAnswerStatus(id uint, status string) error {

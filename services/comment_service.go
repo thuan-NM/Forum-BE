@@ -222,7 +222,7 @@ func (s *commentService) ListComments(filters map[string]interface{}) ([]models.
 
 	var cacheKey string
 	if postID, ok := filters["post_id"].(uint); ok {
-		cacheKey = utils.GenerateCacheKey("comments:question", postID, filters)
+		cacheKey = utils.GenerateCacheKey("comments:post", postID, filters)
 	} else if answerID, ok := filters["answer_id"].(uint); ok {
 		cacheKey = utils.GenerateCacheKey("comments:answer", answerID, filters)
 	} else {

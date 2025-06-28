@@ -6,12 +6,19 @@ import (
 )
 
 type QuestionResponse struct {
-	ID           uint            `json:"id"`
-	Title        string          `json:"title"`
-	AnswerCount  int             `json:"answerCount"`
-	LastFollowed string          `json:"lastFollowed"`
-	FollowCount  int             `json:"followCount"`
-	Topics       []TopicResponse `json:"topics"`
+	ID                uint         `json:"id"`
+	Title             string       `json:"title"`
+	Description       string       `json:"description,omitempty"` // Uses Description field
+	AnswerCount       int          `json:"answersCount"`
+	ReactionCount     int          `json:"reactionsCount"`
+	LastFollowed      string       `json:"lastFollowed"`
+	FollowCount       int          `json:"followsCount"`
+	Topic             models.Topic `json:"topic"`
+	Status            string       `json:"status"`
+	InteractionStatus string       `json:"interactionStatus"`
+	Author            models.User  `json:"author"`
+	CreatedAt         string       `json:"createdAt"`
+	UpdatedAt         string       `json:"updatedAt"`
 }
 
 func ToQuestionResponse(question *models.Question) QuestionResponse {
@@ -25,18 +32,19 @@ func ToQuestionResponse(question *models.Question) QuestionResponse {
 		}
 		lastFollowed = latest.Format(time.RFC3339)
 	}
-
-	var topics []TopicResponse
-	for _, topic := range question.Topics {
-		topics = append(topics, ToTopicResponse(&topic))
-	}
-
 	return QuestionResponse{
-		ID:           question.ID,
-		Title:        question.Title,
-		AnswerCount:  len(question.Answers),
-		LastFollowed: lastFollowed,
-		FollowCount:  len(question.Follows),
-		Topics:       topics,
+		ID:                question.ID,
+		Title:             question.Title,
+		Description:       question.Description,
+		Author:            question.User,
+		AnswerCount:       len(question.Answers),
+		ReactionCount:     len(question.Reactions),
+		LastFollowed:      lastFollowed,
+		FollowCount:       len(question.Follows),
+		Topic:             question.Topic,
+		Status:            string(question.Status),
+		InteractionStatus: string(question.InteractionStatus),
+		CreatedAt:         question.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:         question.UpdatedAt.Format(time.RFC3339),
 	}
 }

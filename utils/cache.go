@@ -15,6 +15,9 @@ func GenerateCacheKey(prefix string, id uint, filters map[string]interface{}) st
 	if status, ok := filters["status"]; ok {
 		key += fmt.Sprintf("status:%v:", status)
 	}
+	if interstatus, ok := filters["interstatus"]; ok {
+		key += fmt.Sprintf("interstatus:%v:", interstatus)
+	}
 	if search, ok := filters["title_search"]; ok {
 		key += fmt.Sprintf("search:%v:", search)
 	}
@@ -24,6 +27,15 @@ func GenerateCacheKey(prefix string, id uint, filters map[string]interface{}) st
 	if tagID, ok := filters["tag_id"]; ok {
 		key += fmt.Sprintf("tag:%v:", tagID)
 	}
+	if answerID, ok := filters["answer_id"]; ok {
+		key += fmt.Sprintf("answer:%v:", answerID)
+	}
+	if postID, ok := filters["post_id"]; ok {
+		key += fmt.Sprintf("post:%v:", postID)
+	}
+	if topicID, ok := filters["topic_id"]; ok {
+		key += fmt.Sprintf("topic_id:%v:", topicID)
+	}
 	if sort, ok := filters["sort"]; ok {
 		key += fmt.Sprintf("sort:%v:", sort)
 	}
@@ -32,6 +44,9 @@ func GenerateCacheKey(prefix string, id uint, filters map[string]interface{}) st
 	}
 	if search, ok := filters["search"]; ok {
 		key += fmt.Sprintf("search:%v:", search)
+	}
+	if tagfilter, ok := filters["tagfilter"]; ok {
+		key += fmt.Sprintf("tagfilter:%v:", tagfilter)
 	}
 	if typefilter, ok := filters["typefilter"]; ok {
 		key += fmt.Sprintf("typefilter:%v:", typefilter)

@@ -42,7 +42,7 @@ func main() {
 		&models.Post{},
 		&models.Question{},
 		&models.Vote{},
-		&models.QuestionTag{},
+		&models.Reaction{},
 		//&models.QuestionTopic{},
 	)
 	if err != nil {
@@ -54,7 +54,7 @@ func main() {
 
 	// Thêm middleware CORS trước
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:5173", "http://localhost:5174"},
+		AllowOrigins:     []string{"http://localhost:5000", "http://localhost:3000"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},

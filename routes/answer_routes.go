@@ -11,16 +11,13 @@ import (
 )
 
 func AnswerRoutes(db *gorm.DB, authorized *gin.RouterGroup, permService services.PermissionService, redisClient *redis.Client) {
-	// Answer routes
-	voteRepo := repositories.NewVoteRepository(db)
-	voteService := services.NewVoteService(voteRepo)
 	topicRepo := repositories.NewTopicRepository(db)
 	topicService := services.NewTopicService(topicRepo, redisClient)
 	questionRepo := repositories.NewQuestionRepository(db)
 	questionService := services.NewQuestionService(questionRepo, topicService, redisClient)
 	answerRepo := repositories.NewAnswerRepository(db)
 	answerService := services.NewAnswerService(answerRepo, questionRepo, questionService, redisClient)
-	answerController := controllers.NewAnswerController(answerService, voteService)
+	answerController := controllers.NewAnswerController(answerService)
 
 	answers := authorized.Group("/answers")
 	{
