@@ -3,7 +3,7 @@ package main
 import (
 	"Forum_BE/config"
 	"Forum_BE/infrastructure"
-	"Forum_BE/models"
+	//"Forum_BE/models"
 
 	"Forum_BE/routes"
 	"log"
@@ -23,28 +23,28 @@ func main() {
 		log.Fatal("Failed to connect to database:", err)
 	}
 
-	// Auto migrate models
-	db.Debug().AutoMigrate(
-		&models.User{},
-		&models.Group{},
-		&models.Activity{},
-		&models.Answer{},
-		&models.Attachment{},
-		&models.Follow{},
-		&models.Permission{},
-		&models.PassedQuestion{},
-		&models.Notification{},
-		&models.Comment{},
-		&models.Message{},
-		&models.Report{},
-		&models.Topic{},
-		&models.Tag{},
-		&models.Post{},
-		&models.Question{},
-		&models.Vote{},
-		&models.Reaction{},
-		//&models.QuestionTopic{},
-	)
+	//// Auto migrate models
+	//db.Debug().AutoMigrate(
+	//	&models.User{},
+	//	&models.Group{},
+	//	&models.Activity{},
+	//	&models.Answer{},
+	//	&models.Attachment{},
+	//	&models.Follow{},
+	//	&models.Permission{},
+	//	&models.PassedQuestion{},
+	//	&models.Notification{},
+	//	&models.Comment{},
+	//	&models.Message{},
+	//	&models.Report{},
+	//	&models.Topic{},
+	//	&models.Tag{},
+	//	&models.Post{},
+	//	&models.Question{},
+	//	&models.Vote{},
+	//	&models.Reaction{},
+	//	//&models.QuestionTopic{},
+	//)
 	if err != nil {
 		log.Fatal("Failed to migrate database:", err)
 	}
