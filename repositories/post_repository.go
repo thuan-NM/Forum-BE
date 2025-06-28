@@ -10,7 +10,7 @@ import (
 )
 
 type PostRepository interface {
-	CreatePost(post *models.Post, tagNames []string) error
+	CreatePost(post *models.Post, tagIds []uint) error
 	GetPostByID(id uint) (*models.Post, error)
 	GetPostByIDSimple(id uint) (*models.Post, error)
 	UpdatePost(post *models.Post, tagNames []string) error
@@ -28,7 +28,7 @@ func NewPostRepository(db *gorm.DB) PostRepository {
 	return &postRepository{db: db}
 }
 
-func (r *postRepository) CreatePost(post *models.Post, tagNames []string) error {
+func (r *postRepository) CreatePost(post *models.Post, tagIds []uint) error {
 	post.PlainContent = utils.StripHTML(post.Content)
 	tx := r.db.Begin()
 	if err := tx.Error; err != nil {
@@ -40,26 +40,17 @@ func (r *postRepository) CreatePost(post *models.Post, tagNames []string) error 
 		return err
 	}
 
-	if len(tagNames) > 0 {
+	if len(tagIds) > 0 {
 		var tags []models.Tag
-		for _, name := range tagNames {
-			name = strings.TrimSpace(strings.ToLower(name))
-			if name == "" {
-				continue
-			}
-			var tag models.Tag
-			if err := tx.Where("name = ?", name).FirstOrCreate(&tag, models.Tag{Name: name}).Error; err != nil {
-				tx.Rollback()
-				return err
-			}
-			tags = append(tags, tag)
+		if err := tx.Where("id IN ?", tagIds).Find(&tags).Error; err != nil {
+			tx.Rollback()
+			return err
 		}
-		if err := tx.Model(post).Association("Tags").Append(tags); err != nil {
+		if err := tx.Model(post).Association("Tags").Replace(tags); err != nil {
 			tx.Rollback()
 			return err
 		}
 	}
-
 	return tx.Commit().Error
 }
 
@@ -184,12 +175,12 @@ func (r *postRepository) GetAllPosts(filters map[string]interface{}) ([]models.P
 
 	// Process filters
 	if search, ok := filters["search"].(string); ok && search != "" {
-		query = query.Where("title LIKE ?", "%"+strings.ToLower(search)+"%")
+		query = query.Where("LOWER(title) LIKE LOWER(?)", "%"+search+"%")
 	}
 	if status, ok := filters["status"].(string); ok && status != "" {
 		query = query.Where("status = ?", status)
 	}
-	if tagfilter, ok := filters["tagfilter"].(string); ok && tagfilter != "" {
+	if tagfilter, ok := filters["tagfilter"].(uint); ok {
 		query = query.
 			Joins("JOIN post_tags ON post_tags.post_id = posts.id").
 			Joins("JOIN tags ON tags.id = post_tags.tag_id").

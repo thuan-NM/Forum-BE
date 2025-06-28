@@ -18,9 +18,9 @@ func NewAnswerController(a services.AnswerService) *AnswerController {
 
 func (ac *AnswerController) CreateAnswer(c *gin.Context) {
 	var req struct {
-		Content    string   `json:"content" binding:"required"`
-		QuestionID uint     `json:"question_id" binding:"required"`
-		Tags       []string `json:"tags"` // Thêm trường Tags
+		Content    string `json:"content" binding:"required"`
+		QuestionID uint   `json:"questionId" binding:"required"`
+		Tags       []uint `json:"tags"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {

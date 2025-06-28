@@ -14,7 +14,7 @@ import (
 )
 
 type AnswerService interface {
-	CreateAnswer(content string, userID uint, questionID uint, tagNames []string) (*models.Answer, error)
+	CreateAnswer(content string, userID uint, questionID uint, tagId []uint) (*models.Answer, error)
 	GetAnswerByID(id uint) (*models.Answer, error)
 	UpdateAnswer(id uint, content string) (*models.Answer, error)
 	DeleteAnswer(id uint) error
@@ -64,15 +64,15 @@ func (s *answerService) GetAllAnswers(filters map[string]interface{}) ([]models.
 
 	return answers, total, nil
 }
-func (s *answerService) CreateAnswer(content string, userID uint, questionID uint, tagNames []string) (*models.Answer, error) {
+func (s *answerService) CreateAnswer(content string, userID uint, questionID uint, tagId []uint) (*models.Answer, error) {
 	if content == "" {
-		return nil, errors.New("content is required")
+		return nil, errors.New("Content is required")
 	}
 
 	question, err := s.questionRepo.GetQuestionByID(questionID)
 	if err != nil {
 		log.Printf("Failed to get question %d: %v", questionID, err)
-		return nil, errors.New("question not found")
+		return nil, errors.New("Question not found")
 	}
 
 	if question.Status != models.StatusApproved {
@@ -86,19 +86,12 @@ func (s *answerService) CreateAnswer(content string, userID uint, questionID uin
 		QuestionID: questionID,
 	}
 
-	if err := s.answerRepo.CreateAnswer(answer, tagNames); err != nil {
+	if err := s.answerRepo.CreateAnswer(answer, tagId); err != nil {
 		log.Printf("Failed to create answer for question %d: %v", questionID, err)
 		return nil, err
 	}
 
-	for attempt := 1; attempt <= 3; attempt++ {
-		s.invalidateCache(fmt.Sprintf("answers:question:%d:*", questionID))
-		log.Printf("Cache invalidated for answers:question:%d (attempt %d)", questionID, attempt)
-		if attempt == 3 {
-			log.Printf("Max retries reached for invalidating answers cache of question %d", questionID)
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
+	s.invalidateCache(fmt.Sprintf("answers:question:%d:*", questionID))
 
 	s.invalidateCache("questions:*")
 	s.invalidateCache("tags:*") // Thêm invalidation cho tag cache
