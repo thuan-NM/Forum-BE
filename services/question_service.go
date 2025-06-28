@@ -14,13 +14,13 @@ import (
 )
 
 type QuestionService interface {
-	CreateQuestion(title string, userID uint) (*models.Question, error)
+	CreateQuestion(title string, description string, userID, topicID uint) (*models.Question, error)
 	GetQuestionByID(id uint) (*models.Question, error)
-	UpdateQuestion(id uint, title string) (*models.Question, error)
+	UpdateQuestion(id uint, title string, description string, topicID uint) (*models.Question, error)
 	DeleteQuestion(id uint) error
-	ListQuestions(filters map[string]interface{}) ([]models.Question, error)
-	ApproveQuestion(id uint) (*models.Question, error)
-	RejectQuestion(id uint) (*models.Question, error)
+	ListQuestions(filters map[string]interface{}) ([]models.Question, int, error)
+	UpdateQuestionStatus(id uint, status string) (*models.Question, error)
+	UpdateInteractionStatus(id uint, status models.InteractionStatus, userID uint) (*models.Question, error)
 }
 
 type questionService struct {
@@ -33,15 +33,18 @@ func NewQuestionService(qRepo repositories.QuestionRepository, tService TopicSer
 	return &questionService{questionRepo: qRepo, topicService: tService, redisClient: redisClient}
 }
 
-func (s *questionService) CreateQuestion(title string, userID uint) (*models.Question, error) {
+func (s *questionService) CreateQuestion(title string, description string, userID, topicID uint) (*models.Question, error) {
 	if title == "" {
 		return nil, fmt.Errorf("title is required")
 	}
 
 	question := &models.Question{
-		Title:  title,
-		UserID: userID,
-		Status: models.StatusPending,
+		Title:             title,
+		Description:       description,
+		UserID:            userID,
+		TopicID:           topicID,
+		Status:            models.StatusPending,
+		InteractionStatus: models.InteractionOpened,
 	}
 
 	if err := s.questionRepo.CreateQuestion(question); err != nil {
@@ -49,41 +52,41 @@ func (s *questionService) CreateQuestion(title string, userID uint) (*models.Que
 		return nil, err
 	}
 
-	// Gợi ý Topic dựa trên tiêu đề (logic đơn giản)
-	s.suggestTopicsForQuestion(question)
+	if topicID == 0 {
+		s.suggestTopicForQuestion(question)
+	}
 
-	// Xóa cache
 	s.invalidateCache("questions:*")
 
 	return question, nil
 }
 
-func (s *questionService) suggestTopicsForQuestion(question *models.Question) {
-	// Logic đơn giản: lấy từ khóa từ tiêu đề
+func (s *questionService) suggestTopicForQuestion(question *models.Question) {
 	keywords := strings.Split(strings.ToLower(question.Title), " ")
 	for _, keyword := range keywords {
-		if len(keyword) < 3 { // Bỏ qua từ khóa quá ngắn
+		if len(keyword) < 3 {
 			continue
 		}
-		// Kiểm tra xem Topic đã tồn tại chưa
-		_, err := s.topicService.GetTopicByID(0) // Giả lập tìm kiếm, cần thay bằng logic thực
+		topic, err := s.topicService.GetTopicByName(keyword)
 		if err != nil && err.Error() == "topic not found" {
-			// Đề xuất Topic mới (hệ thống tạo)
-			_, err := s.topicService.CreateTopic(keyword, "Auto-generated topic from question", 0) // 0 là hệ thống
+			topic, err = s.topicService.CreateTopic(keyword, "Auto-generated topic from question")
 			if err != nil {
 				log.Printf("Failed to suggest topic %s for question %d: %v", keyword, question.ID, err)
 				continue
 			}
-			// Gắn Topic vào Question (cần logic kiểm tra trước)
-			// s.topicService.AddQuestionToTopic(question.ID, topic.ID)
+			question.TopicID = topic.ID
+			if err := s.questionRepo.UpdateQuestion(question); err != nil {
+				log.Printf("Failed to update question %d with topic %d: %v", question.ID, topic.ID, err)
+			}
+			break
 		}
 	}
 }
 
 func (s *questionService) GetQuestionByID(id uint) (*models.Question, error) {
 	cacheKey := fmt.Sprintf("question:%d", id)
-
 	ctx := context.Background()
+
 	cached, err := s.redisClient.Get(ctx, cacheKey).Result()
 	if err == nil {
 		var question models.Question
@@ -111,7 +114,7 @@ func (s *questionService) GetQuestionByID(id uint) (*models.Question, error) {
 	return question, nil
 }
 
-func (s *questionService) UpdateQuestion(id uint, title string) (*models.Question, error) {
+func (s *questionService) UpdateQuestion(id uint, title string, description string, topicID uint) (*models.Question, error) {
 	question, err := s.questionRepo.GetQuestionByID(id)
 	if err != nil {
 		return nil, err
@@ -120,13 +123,16 @@ func (s *questionService) UpdateQuestion(id uint, title string) (*models.Questio
 	if title != "" {
 		question.Title = title
 	}
+	question.Description = description
+	if topicID != 0 {
+		question.TopicID = topicID
+	}
 
 	if err := s.questionRepo.UpdateQuestion(question); err != nil {
 		log.Printf("Failed to update question %d: %v", id, err)
 		return nil, err
 	}
 
-	// Xóa cache
 	s.invalidateCache(fmt.Sprintf("question:%d", id))
 	s.invalidateCache("questions:*")
 
@@ -140,124 +146,102 @@ func (s *questionService) DeleteQuestion(id uint) error {
 		return err
 	}
 
-	// Xóa cache
 	s.invalidateCache(fmt.Sprintf("question:%d", id))
 	s.invalidateCache("questions:*")
 
 	return nil
 }
 
-func (s *questionService) ListQuestions(filters map[string]interface{}) ([]models.Question, error) {
-	cacheKey := utils.GenerateCacheKey("questions", 0, filters)
-
+func (s *questionService) ListQuestions(filters map[string]interface{}) ([]models.Question, int, error) {
+	cacheKey := utils.GenerateCacheKey("questions:all", 0, filters)
 	ctx := context.Background()
+
 	cached, err := s.redisClient.Get(ctx, cacheKey).Result()
 	if err == nil {
-		var questions []models.Question
-		if err := json.Unmarshal([]byte(cached), &questions); err == nil {
+		var cachedData struct {
+			Questions []models.Question
+			Total     int
+		}
+		if err := json.Unmarshal([]byte(cached), &cachedData); err == nil {
 			log.Printf("Cache hit for %s", cacheKey)
-			return questions, nil
+			return cachedData.Questions, cachedData.Total, nil
 		}
 	}
 	if err != redis.Nil {
 		log.Printf("Redis error for %s: %v", cacheKey, err)
 	}
 
-	questions, err := s.questionRepo.ListQuestions(filters)
+	var questions []models.Question
+	var total int
+	if userID, ok := filters["user_id"].(uint); ok && userID != 0 {
+		questions, total, err = s.questionRepo.ListQuestionsExcludingPassed(filters)
+	} else {
+		questions, total, err = s.questionRepo.ListQuestions(filters)
+	}
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
-	if topicID, ok := filters["topic_id"]; ok {
-		var filtered []models.Question
-		for _, q := range questions {
-			for _, t := range q.Topics { // Đổi từ Tags thành Topics
-				if t.ID == topicID.(uint) {
-					filtered = append(filtered, q)
-					break
-				}
-			}
-		}
-		questions = filtered
-	}
-
-	if userIDRaw, ok := filters["user_id"]; ok {
-		userID := userIDRaw.(uint)
-		passedIDs, err := s.questionRepo.GetPassedQuestionIDs(userID)
-		if err != nil {
-			return nil, err
-		}
-
-		passedMap := make(map[uint]bool)
-		for _, id := range passedIDs {
-			passedMap[id] = true
-		}
-
-		var visibleQuestions []models.Question
-		for _, q := range questions {
-			if !passedMap[q.ID] {
-				visibleQuestions = append(visibleQuestions, q)
-			}
-		}
-		questions = visibleQuestions
-	}
-
-	data, err := json.Marshal(questions)
+	cacheData := struct {
+		Questions []models.Question
+		Total     int
+	}{Questions: questions, Total: total}
+	data, err := json.Marshal(cacheData)
 	if err == nil {
 		if err := s.redisClient.Set(ctx, cacheKey, data, 2*time.Minute).Err(); err != nil {
 			log.Printf("Failed to set cache for %s: %v", cacheKey, err)
+		} else {
+			log.Printf("Cache set for %s with %d questions", cacheKey, len(questions))
 		}
+	} else {
+		log.Printf("Failed to marshal questions for cache: %v", err)
 	}
 
-	return questions, nil
+	return questions, total, nil
 }
 
-func (s *questionService) ApproveQuestion(id uint) (*models.Question, error) {
-	question, err := s.questionRepo.GetQuestionByID(id)
+func (s *questionService) UpdateQuestionStatus(id uint, status string) (*models.Question, error) {
+	if status != string(models.StatusApproved) && status != string(models.StatusPending) && status != string(models.StatusRejected) {
+		return nil, fmt.Errorf("invalid question status")
+	}
+
+	if err := s.questionRepo.UpdateQuestionStatus(id, status); err != nil {
+		log.Printf("Failed to update question status %d: %v", id, err)
+		return nil, err
+	}
+
+	updatedQuestion, err := s.questionRepo.GetQuestionByIDMinimal(id)
 	if err != nil {
+		log.Printf("Failed to get updated question %d: %v", id, err)
 		return nil, err
 	}
 
-	if question.Status != models.StatusPending {
-		return nil, fmt.Errorf("question is not pending")
-	}
-
-	question.Status = models.StatusApproved
-
-	if err := s.questionRepo.UpdateQuestion(question); err != nil {
-		log.Printf("Failed to approve question %d: %v", id, err)
-		return nil, err
-	}
-
-	// Xóa cache
 	s.invalidateCache(fmt.Sprintf("question:%d", id))
 	s.invalidateCache("questions:*")
 
-	return question, nil
+	return updatedQuestion, nil
 }
 
-func (s *questionService) RejectQuestion(id uint) (*models.Question, error) {
-	question, err := s.questionRepo.GetQuestionByID(id)
+func (s *questionService) UpdateInteractionStatus(id uint, status models.InteractionStatus, userID uint) (*models.Question, error) {
+	if status != models.InteractionOpened && status != models.InteractionSolved && status != models.InteractionClosed {
+		return nil, fmt.Errorf("trạng thái tương tác không hợp lệ")
+	}
+
+	if err := s.questionRepo.UpdateInteractionStatus(id, string(status)); err != nil {
+		log.Printf("Failed to update interaction status for question %d: %v", id, err)
+		return nil, err
+	}
+
+	updatedQuestion, err := s.questionRepo.GetQuestionByIDMinimal(id)
 	if err != nil {
+		log.Printf("Failed to get updated question %d: %v", id, err)
 		return nil, err
 	}
 
-	if question.Status != models.StatusPending {
-		return nil, fmt.Errorf("question is not pending")
-	}
-
-	question.Status = models.StatusRejected
-
-	if err := s.questionRepo.UpdateQuestion(question); err != nil {
-		log.Printf("Failed to reject question %d: %v", id, err)
-		return nil, err
-	}
-
-	// Xóa cache
 	s.invalidateCache(fmt.Sprintf("question:%d", id))
 	s.invalidateCache("questions:*")
 
-	return question, nil
+	return updatedQuestion, nil
 }
 
 func (s *questionService) invalidateCache(pattern string) {

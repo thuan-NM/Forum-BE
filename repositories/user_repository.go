@@ -2,7 +2,12 @@ package repositories
 
 import (
 	"Forum_BE/models"
+	"errors"
 	"gorm.io/gorm"
+)
+
+var (
+	ErrNotFound = errors.New("user not found")
 )
 
 type UserRepository interface {
@@ -12,8 +17,7 @@ type UserRepository interface {
 	GetUserByEmail(email string) (*models.User, error)
 	UpdateUser(user *models.User) error
 	DeleteUser(id uint) error
-	ListUsers() ([]models.User, error)
-	ListUsersPaginated(limit, offset int) ([]models.User, int64, error)
+	GetAllUsers(filters map[string]interface{}) ([]models.User, int64, error)
 }
 
 type userRepository struct {
@@ -32,6 +36,9 @@ func (r *userRepository) GetUserByID(id uint) (*models.User, error) {
 	var user models.User
 	err := r.db.First(&user, id).Error
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrNotFound
+		}
 		return nil, err
 	}
 	return &user, nil
@@ -39,8 +46,11 @@ func (r *userRepository) GetUserByID(id uint) (*models.User, error) {
 
 func (r *userRepository) GetUserByUsername(username string) (*models.User, error) {
 	var user models.User
-	err := r.db.Where("username = ?", username).First(&user).Error
+	err := r.db.Where("username = ? AND deleted_at IS NULL", username).First(&user).Error
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrNotFound
+		}
 		return nil, err
 	}
 	return &user, nil
@@ -48,8 +58,11 @@ func (r *userRepository) GetUserByUsername(username string) (*models.User, error
 
 func (r *userRepository) GetUserByEmail(email string) (*models.User, error) {
 	var user models.User
-	err := r.db.Where("email = ?", email).First(&user).Error
+	err := r.db.Where("email = ? AND deleted_at IS NULL", email).First(&user).Error
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrNotFound
+		}
 		return nil, err
 	}
 	return &user, nil
@@ -63,26 +76,33 @@ func (r *userRepository) DeleteUser(id uint) error {
 	return r.db.Delete(&models.User{}, id).Error
 }
 
-func (r *userRepository) ListUsers() ([]models.User, error) {
-	var users []models.User
-	err := r.db.Where("deleted_at IS NULL").Find(&users).Error
-	if err != nil {
-		return nil, err
-	}
-	return users, nil
-}
-
-func (r *userRepository) ListUsersPaginated(limit, offset int) ([]models.User, int64, error) {
+func (r *userRepository) GetAllUsers(filters map[string]interface{}) ([]models.User, int64, error) {
 	var users []models.User
 	var total int64
 
-	err := r.db.Model(&models.User{}).Where("deleted_at IS NULL").Count(&total).Error
-	if err != nil {
+	query := r.db.Model(&models.User{}).Where("deleted_at IS NULL")
+
+	// Apply search filter
+	if search, ok := filters["search"].(string); ok && search != "" {
+		searchPattern := "%" + search + "%"
+		query = query.Where("username LIKE ? OR email LIKE ?", searchPattern, searchPattern)
+	}
+
+	// Count total
+	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
-	err = r.db.Where("deleted_at IS NULL").Limit(limit).Offset(offset).Find(&users).Error
-	if err != nil {
+	// Apply pagination
+	if limit, ok := filters["limit"].(int); ok && limit > 0 {
+		query = query.Limit(limit)
+	}
+	if offset, ok := filters["offset"].(int); ok && offset >= 0 {
+		query = query.Offset(offset)
+	}
+
+	// Execute query
+	if err := query.Find(&users).Error; err != nil {
 		return nil, 0, err
 	}
 

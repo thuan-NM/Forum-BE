@@ -5,7 +5,6 @@ import (
 	"time"
 )
 
-// PermissionResponse định nghĩa cấu trúc dữ liệu trả về cho Permission
 type PermissionResponse struct {
 	ID        uint   `json:"id"`
 	Role      string `json:"role"`
@@ -16,7 +15,6 @@ type PermissionResponse struct {
 	UpdatedAt string `json:"updated_at"`
 }
 
-// ToPermissionResponse chuyển đổi từ model Permission sang PermissionResponse
 func ToPermissionResponse(permission *models.Permission) PermissionResponse {
 	return PermissionResponse{
 		ID:        permission.ID,

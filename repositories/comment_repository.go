@@ -103,7 +103,7 @@ func (r *commentRepository) ListComments(filters map[string]interface{}) ([]mode
 	allowedFilters := map[string]bool{
 		"post_id":   true,
 		"answer_id": true,
-		"user_id":   true,
+		//"user_id":   true,
 	}
 	if filters != nil {
 		for key, value := range filters {

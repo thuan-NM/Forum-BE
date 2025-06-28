@@ -10,18 +10,17 @@ import (
 
 type AnswerController struct {
 	answerService services.AnswerService
-	voteService   services.VoteService
 }
 
-func NewAnswerController(a services.AnswerService, v services.VoteService) *AnswerController {
-	return &AnswerController{answerService: a, voteService: v}
+func NewAnswerController(a services.AnswerService) *AnswerController {
+	return &AnswerController{answerService: a}
 }
 
-// CreateAnswer xử lý yêu cầu tạo answer mới
 func (ac *AnswerController) CreateAnswer(c *gin.Context) {
 	var req struct {
-		Content    string `json:"content" binding:"required"`
-		QuestionID uint   `json:"question_id" binding:"required"`
+		Content    string   `json:"content" binding:"required"`
+		QuestionID uint     `json:"question_id" binding:"required"`
+		Tags       []string `json:"tags"` // Thêm trường Tags
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -31,7 +30,7 @@ func (ac *AnswerController) CreateAnswer(c *gin.Context) {
 
 	userID := c.GetUint("user_id") // Middleware đã thêm user_id vào context
 
-	answer, err := ac.answerService.CreateAnswer(req.Content, userID, req.QuestionID)
+	answer, err := ac.answerService.CreateAnswer(req.Content, userID, req.QuestionID, req.Tags)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -111,7 +110,6 @@ func (ac *AnswerController) DeleteAnswer(c *gin.Context) {
 	})
 }
 
-// ListAnswers xử lý yêu cầu liệt kê tất cả các answer với các bộ lọc
 func (ac *AnswerController) ListAnswers(c *gin.Context) {
 	filters := make(map[string]interface{})
 
@@ -136,7 +134,24 @@ func (ac *AnswerController) ListAnswers(c *gin.Context) {
 		filters["content LIKE ?"] = "%" + search + "%"
 	}
 
-	answers, err := ac.answerService.ListAnswers(filters)
+	limitStr := c.Query("limit")
+	pageStr := c.Query("page")
+	limit := 10 // Default limit
+	page := 1   // Default page
+	if limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
+			limit = l
+		}
+	}
+	if pageStr != "" {
+		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+			page = p
+		}
+	}
+	filters["limit"] = limit
+	filters["page"] = page
+
+	answers, total, err := ac.answerService.ListAnswers(filters)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list answers"})
 		return
@@ -149,6 +164,7 @@ func (ac *AnswerController) ListAnswers(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"answers": responseAnswers,
+		"total":   total,
 	})
 }
 

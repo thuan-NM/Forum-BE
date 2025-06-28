@@ -13,15 +13,16 @@ import (
 )
 
 type TopicService interface {
-	CreateTopic(name, description string, createdBy uint) (*models.Topic, error)
+	CreateTopic(name, description string) (*models.Topic, error)
 	ProposeTopic(name, description string, userID uint) (*models.Topic, error)
 	GetTopicByID(id uint) (*models.Topic, error)
 	UpdateTopic(id uint, name, description string) (*models.Topic, error)
 	DeleteTopic(id uint) error
-	ListTopics(filters map[string]interface{}) ([]models.Topic, error)
-	ApproveTopic(id uint) (*models.Topic, error)
-	RejectTopic(id uint) (*models.Topic, error)
+	ListTopics(filters map[string]interface{}) ([]models.Topic, int, error)
+	FollowTopic(userID, topicID uint) error
+	UnfollowTopic(userID, topicID uint) error
 	AddQuestionToTopic(questionID, topicID uint) error
+	GetTopicByName(name string) (*models.Topic, error)
 	RemoveQuestionFromTopic(questionID, topicID uint) error
 }
 
@@ -34,12 +35,42 @@ func NewTopicService(tRepo repositories.TopicRepository, redisClient *redis.Clie
 	return &topicService{topicRepo: tRepo, redisClient: redisClient}
 }
 
-func (s *topicService) CreateTopic(name, description string, createdBy uint) (*models.Topic, error) {
+func (s *topicService) GetTopicByName(name string) (*models.Topic, error) {
+	cacheKey := fmt.Sprintf("topic:name:%s", name)
+	ctx := context.Background()
+
+	cached, err := s.redisClient.Get(ctx, cacheKey).Result()
+	if err == nil {
+		var topic models.Topic
+		if err := json.Unmarshal([]byte(cached), &topic); err == nil {
+			log.Printf("Cache hit for topic:name:%s", name)
+			return &topic, nil
+		}
+	}
+	if err != redis.Nil {
+		log.Printf("Redis error for topic:name:%s: %v", name, err)
+	}
+
+	topic, err := s.topicRepo.GetTopicByName(name)
+	if err != nil {
+		return nil, fmt.Errorf("topic not found")
+	}
+
+	data, err := json.Marshal(topic)
+	if err == nil {
+		if err := s.redisClient.Set(ctx, cacheKey, data, 2*time.Minute).Err(); err != nil {
+			log.Printf("Failed to set cache for topic:name:%s: %v", name, err)
+		}
+	}
+
+	return topic, nil
+}
+
+func (s *topicService) CreateTopic(name, description string) (*models.Topic, error) {
 	if name == "" {
 		return nil, fmt.Errorf("topic name is required")
 	}
 
-	// Kiểm tra trùng tên
 	existingTopic, err := s.topicRepo.GetTopicByName(name)
 	if err == nil && existingTopic != nil {
 		return nil, fmt.Errorf("topic with name %s already exists", name)
@@ -48,8 +79,6 @@ func (s *topicService) CreateTopic(name, description string, createdBy uint) (*m
 	topic := &models.Topic{
 		Name:        name,
 		Description: description,
-		Status:      models.TopicStatusApproved, // Tạo tự động thì auto duyệt
-		CreatedBy:   createdBy,
 	}
 
 	if err := s.topicRepo.CreateTopic(topic); err != nil {
@@ -57,7 +86,7 @@ func (s *topicService) CreateTopic(name, description string, createdBy uint) (*m
 		return nil, err
 	}
 
-	// Xóa cache
+	// Invalidate cache
 	s.invalidateCache("topics:*")
 
 	return topic, nil
@@ -68,7 +97,6 @@ func (s *topicService) ProposeTopic(name, description string, userID uint) (*mod
 		return nil, fmt.Errorf("topic name is required")
 	}
 
-	// Kiểm tra trùng tên
 	existingTopic, err := s.topicRepo.GetTopicByName(name)
 	if err == nil && existingTopic != nil {
 		return nil, fmt.Errorf("topic with name %s already exists", name)
@@ -77,8 +105,6 @@ func (s *topicService) ProposeTopic(name, description string, userID uint) (*mod
 	topic := &models.Topic{
 		Name:        name,
 		Description: description,
-		Status:      models.TopicStatusPending,
-		CreatedBy:   userID,
 	}
 
 	if err := s.topicRepo.CreateTopic(topic); err != nil {
@@ -86,7 +112,7 @@ func (s *topicService) ProposeTopic(name, description string, userID uint) (*mod
 		return nil, err
 	}
 
-	// Xóa cache
+	// Invalidate cache
 	s.invalidateCache("topics:*")
 
 	return topic, nil
@@ -130,7 +156,6 @@ func (s *topicService) UpdateTopic(id uint, name, description string) (*models.T
 	}
 
 	if name != "" {
-		// Kiểm tra trùng tên
 		existingTopic, err := s.topicRepo.GetTopicByName(name)
 		if err == nil && existingTopic != nil && existingTopic.ID != id {
 			return nil, fmt.Errorf("topic with name %s already exists", name)
@@ -146,7 +171,7 @@ func (s *topicService) UpdateTopic(id uint, name, description string) (*models.T
 		return nil, err
 	}
 
-	// Xóa cache
+	// Invalidate cache
 	s.invalidateCache(fmt.Sprintf("topic:%d", id))
 	s.invalidateCache("topics:*")
 
@@ -160,90 +185,53 @@ func (s *topicService) DeleteTopic(id uint) error {
 		return err
 	}
 
-	// Xóa cache
+	// Invalidate cache
 	s.invalidateCache(fmt.Sprintf("topic:%d", id))
 	s.invalidateCache("topics:*")
 
 	return nil
 }
 
-func (s *topicService) ListTopics(filters map[string]interface{}) ([]models.Topic, error) {
-	cacheKey := utils.GenerateCacheKey("topics", 0, filters)
+func (s *topicService) ListTopics(filters map[string]interface{}) ([]models.Topic, int, error) {
+	cacheKey := utils.GenerateCacheKey("topics:all", 0, filters)
 	ctx := context.Background()
 
 	cached, err := s.redisClient.Get(ctx, cacheKey).Result()
 	if err == nil {
-		var topics []models.Topic
-		if err := json.Unmarshal([]byte(cached), &topics); err == nil {
+		var cachedData struct {
+			Topics []models.Topic
+			Total  int
+		}
+		if err := json.Unmarshal([]byte(cached), &cachedData); err == nil {
 			log.Printf("Cache hit for %s", cacheKey)
-			return topics, nil
+			return cachedData.Topics, cachedData.Total, nil
 		}
 	}
 	if err != redis.Nil {
 		log.Printf("Redis error for %s: %v", cacheKey, err)
 	}
 
-	topics, err := s.topicRepo.ListTopics(filters)
+	topics, total, err := s.topicRepo.ListTopics(filters)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
-	data, err := json.Marshal(topics)
+	cacheData := struct {
+		Topics []models.Topic
+		Total  int
+	}{Topics: topics, Total: total}
+	data, err := json.Marshal(cacheData)
 	if err == nil {
 		if err := s.redisClient.Set(ctx, cacheKey, data, 2*time.Minute).Err(); err != nil {
 			log.Printf("Failed to set cache for %s: %v", cacheKey, err)
+		} else {
+			log.Printf("Cache set for %s with %d topics", cacheKey, len(topics))
 		}
+	} else {
+		log.Printf("Failed to marshal topics for cache: %v", err)
 	}
 
-	return topics, nil
-}
-
-func (s *topicService) ApproveTopic(id uint) (*models.Topic, error) {
-	topic, err := s.topicRepo.GetTopicByID(id)
-	if err != nil {
-		return nil, err
-	}
-
-	if topic.Status != models.TopicStatusPending {
-		return nil, fmt.Errorf("topic is not pending")
-	}
-
-	topic.Status = models.TopicStatusApproved
-
-	if err := s.topicRepo.UpdateTopic(topic); err != nil {
-		log.Printf("Failed to approve topic %d: %v", id, err)
-		return nil, err
-	}
-
-	// Xóa cache
-	s.invalidateCache(fmt.Sprintf("topic:%d", id))
-	s.invalidateCache("topics:*")
-
-	return topic, nil
-}
-
-func (s *topicService) RejectTopic(id uint) (*models.Topic, error) {
-	topic, err := s.topicRepo.GetTopicByID(id)
-	if err != nil {
-		return nil, err
-	}
-
-	if topic.Status != models.TopicStatusPending {
-		return nil, fmt.Errorf("topic is not pending")
-	}
-
-	topic.Status = models.TopicStatusRejected
-
-	if err := s.topicRepo.UpdateTopic(topic); err != nil {
-		log.Printf("Failed to reject topic %d: %v", id, err)
-		return nil, err
-	}
-
-	// Xóa cache
-	s.invalidateCache(fmt.Sprintf("topic:%d", id))
-	s.invalidateCache("topics:*")
-
-	return topic, nil
+	return topics, total, nil
 }
 
 func (s *topicService) AddQuestionToTopic(questionID, topicID uint) error {
@@ -253,7 +241,7 @@ func (s *topicService) AddQuestionToTopic(questionID, topicID uint) error {
 		return err
 	}
 
-	// Xóa cache
+	// Invalidate cache
 	s.invalidateCache(fmt.Sprintf("topic:%d", topicID))
 	s.invalidateCache("topics:*")
 	s.invalidateCache(fmt.Sprintf("question:%d", questionID))
@@ -269,11 +257,65 @@ func (s *topicService) RemoveQuestionFromTopic(questionID, topicID uint) error {
 		return err
 	}
 
-	// Xóa cache
+	// Invalidate cache
 	s.invalidateCache(fmt.Sprintf("topic:%d", topicID))
 	s.invalidateCache("topics:*")
 	s.invalidateCache(fmt.Sprintf("question:%d", questionID))
 	s.invalidateCache("questions:*")
+
+	return nil
+}
+
+func (s *topicService) FollowTopic(userID, topicID uint) error {
+	topic, err := s.topicRepo.GetTopicByID(topicID)
+	if err != nil {
+		return err
+	}
+
+	err = s.topicRepo.FollowTopic(userID, topicID)
+	if err != nil {
+		log.Printf("Failed to follow topic %d by user %d: %v", topicID, userID, err)
+		return err
+	}
+
+	// Update followers count
+	topic.FollowersCount++
+	if err := s.topicRepo.UpdateTopic(topic); err != nil {
+		log.Printf("Failed to update followers count for topic %d: %v", topicID, err)
+		return err
+	}
+
+	// Invalidate cache
+	s.invalidateCache(fmt.Sprintf("topic:%d", topicID))
+	s.invalidateCache("topics:*")
+
+	return nil
+}
+
+func (s *topicService) UnfollowTopic(userID, topicID uint) error {
+	topic, err := s.topicRepo.GetTopicByID(topicID)
+	if err != nil {
+		return err
+	}
+
+	err = s.topicRepo.UnfollowTopic(userID, topicID)
+	if err != nil {
+		log.Printf("Failed to unfollow topic %d by user %d: %v", topicID, userID, err)
+		return err
+	}
+
+	// Update followers count
+	if topic.FollowersCount > 0 {
+		topic.FollowersCount--
+	}
+	if err := s.topicRepo.UpdateTopic(topic); err != nil {
+		log.Printf("Failed to update followers count for topic %d: %v", topicID, err)
+		return err
+	}
+
+	// Invalidate cache
+	s.invalidateCache(fmt.Sprintf("topic:%d", topicID))
+	s.invalidateCache("topics:*")
 
 	return nil
 }

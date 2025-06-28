@@ -110,10 +110,10 @@ func (cc *CommentController) DeleteComment(c *gin.Context) {
 func (cc *CommentController) ListComments(c *gin.Context) {
 	filters := make(map[string]interface{})
 
-	questionID := c.Query("question_id")
-	if questionID != "" {
-		if qID, err := strconv.ParseUint(questionID, 10, 64); err == nil {
-			filters["post_id"] = uint(qID)
+	postID := c.Query("post_id")
+	if postID != "" {
+		if postID, err := strconv.ParseUint(postID, 10, 64); err == nil {
+			filters["post_id"] = uint(postID)
 		}
 	}
 

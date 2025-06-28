@@ -3,6 +3,7 @@ package repositories
 import (
 	"Forum_BE/models"
 	"gorm.io/gorm"
+	"log"
 )
 
 type TopicRepository interface {
@@ -11,9 +12,11 @@ type TopicRepository interface {
 	GetTopicByName(name string) (*models.Topic, error)
 	UpdateTopic(topic *models.Topic) error
 	DeleteTopic(id uint) error
-	ListTopics(filters map[string]interface{}) ([]models.Topic, error)
+	ListTopics(filters map[string]interface{}) ([]models.Topic, int, error)
 	AddQuestionToTopic(questionID, topicID uint) error
 	RemoveQuestionFromTopic(questionID, topicID uint) error
+	FollowTopic(userID, topicID uint) error
+	UnfollowTopic(userID, topicID uint) error
 }
 
 type topicRepository struct {
@@ -54,23 +57,52 @@ func (r *topicRepository) DeleteTopic(id uint) error {
 	return r.db.Delete(&models.Topic{}, id).Error
 }
 
-func (r *topicRepository) ListTopics(filters map[string]interface{}) ([]models.Topic, error) {
+func (r *topicRepository) ListTopics(filters map[string]interface{}) ([]models.Topic, int, error) {
 	var topics []models.Topic
-	query := r.db.Preload("Questions")
 
+	// Process pagination parameters
+	page, okPage := filters["page"].(int)
+	limit, okLimit := filters["limit"].(int)
+	if !okPage || page < 1 {
+		page = 1
+	}
+	if !okLimit || limit < 1 {
+		limit = 10
+	}
+	offset := (page - 1) * limit
+
+	// Query for counting total
+	countQuery := r.db.Model(&models.Topic{})
+	if search, ok := filters["search"]; ok {
+		countQuery = countQuery.Where("name LIKE ? OR description LIKE ?", "%"+search.(string)+"%", "%"+search.(string)+"%")
+	}
+	if status, ok := filters["status"]; ok {
+		countQuery = countQuery.Where("status = ?", status)
+	}
+	var total int64
+	if err := countQuery.Count(&total).Error; err != nil {
+		log.Printf("Error counting topics: %v", err)
+		return nil, 0, err
+	}
+
+	// Apply filters and pagination
+	query := r.db.Preload("Questions")
+	if search, ok := filters["search"]; ok {
+		query = query.Where("name LIKE ? OR description LIKE ?", "%"+search.(string)+"%", "%"+search.(string)+"%")
+	}
 	if status, ok := filters["status"]; ok {
 		query = query.Where("status = ?", status)
 	}
 
-	if search, ok := filters["search"]; ok {
-		query = query.Where("name LIKE ?", "%"+search.(string)+"%")
-	}
-
+	query = query.Offset(offset).Limit(limit)
 	err := query.Find(&topics).Error
 	if err != nil {
-		return nil, err
+		log.Printf("Error fetching topics: %v", err)
+		return nil, 0, err
 	}
-	return topics, nil
+
+	log.Printf("Found %d topics with total %d", len(topics), total)
+	return topics, int(total), nil
 }
 
 func (r *topicRepository) AddQuestionToTopic(questionID, topicID uint) error {
@@ -79,4 +111,12 @@ func (r *topicRepository) AddQuestionToTopic(questionID, topicID uint) error {
 
 func (r *topicRepository) RemoveQuestionFromTopic(questionID, topicID uint) error {
 	return r.db.Exec("DELETE FROM question_topics WHERE question_id = ? AND topic_id = ?", questionID, topicID).Error
+}
+
+func (r *topicRepository) FollowTopic(userID, topicID uint) error {
+	return r.db.Exec("INSERT INTO user_topics (user_id, topic_id) VALUES (?, ?)", userID, topicID).Error
+}
+
+func (r *topicRepository) UnfollowTopic(userID, topicID uint) error {
+	return r.db.Exec("DELETE FROM user_topics WHERE user_id = ? AND topic_id = ?", userID, topicID).Error
 }

@@ -11,14 +11,13 @@ import (
 )
 
 func QuestionRoutes(db *gorm.DB, authorized *gin.RouterGroup, permService services.PermissionService, redisClient *redis.Client) {
-	// Question routes
-	voteRepo := repositories.NewVoteRepository(db)
-	voteService := services.NewVoteService(voteRepo)
 	topicRepo := repositories.NewTopicRepository(db)
-	topicService := services.NewTopicService(topicRepo, redisClient)
 	questionRepo := repositories.NewQuestionRepository(db)
+
+	topicService := services.NewTopicService(topicRepo, redisClient)
 	questionService := services.NewQuestionService(questionRepo, topicService, redisClient)
-	questionController := controllers.NewQuestionController(questionService, voteService)
+
+	questionController := controllers.NewQuestionController(questionService)
 
 	questions := authorized.Group("/questions")
 	{
@@ -28,8 +27,7 @@ func QuestionRoutes(db *gorm.DB, authorized *gin.RouterGroup, permService servic
 		questions.DELETE("/:id", middlewares.CheckPermission(permService, "question", "delete"), questionController.DeleteQuestion)
 		questions.GET("/", middlewares.CheckPermission(permService, "question", "view"), questionController.ListQuestions)
 		questions.GET("/suggest", middlewares.CheckPermission(permService, "question", "view"), questionController.SuggestQuestions)
-		// Approval routes
-		questions.POST("/:id/approve", middlewares.CheckPermission(permService, "question", "approve"), questionController.ApproveQuestion)
-		questions.POST("/:id/reject", middlewares.CheckPermission(permService, "question", "reject"), questionController.RejectQuestion)
+		questions.PUT("/:id/status", middlewares.CheckPermission(permService, "question", "change_status"), questionController.UpdateQuestionStatus)
+		questions.PUT("/:id/interaction-status", middlewares.CheckPermission(permService, "question", "change_inter_status"), questionController.UpdateInteractionStatus)
 	}
 }

@@ -1,26 +1,33 @@
 package models
 
 import (
-	"encoding/json"
-	"gorm.io/gorm"
 	"time"
+
+	"gorm.io/gorm"
+)
+
+type ReportStatus string
+
+const (
+	PendingStatus   ReportStatus = "pending"
+	ResolvedStatus  ReportStatus = "resolved"
+	DismissedStatus ReportStatus = "dismissed"
 )
 
 type Report struct {
-	ID            uint            `gorm:"primaryKey" json:"id"`
-	UserID        uint            `gorm:"not null;index" json:"user_id"` // người report
-	EntityType    string          `gorm:"type:varchar(50);index" json:"entity_type"`
-	EntityID      uint            `gorm:"not null;index" json:"entity_id"`
-	Reason        string          `gorm:"type:text" json:"reason"`
-	Status        string          `gorm:"type:ENUM('pending','approved','rejected','closed');default:'pending'" json:"status"`
-	ModeratorID   *uint           `json:"moderator_id,omitempty"`
-	ModeratorNote string          `gorm:"type:text" json:"moderator_note,omitempty"`
-	Result        string          `gorm:"type:text" json:"result,omitempty"`
-	Metadata      json.RawMessage `gorm:"type:json" json:"metadata,omitempty"`
-	CreatedAt     time.Time       `json:"created_at"`
-	ProcessedAt   *time.Time      `json:"processed_at,omitempty"`
-	DeletedAt     gorm.DeletedAt  `gorm:"index" json:"-"`
+	ID             string         `gorm:"primaryKey;type:varchar(255)" json:"id"`
+	Reason         string         `gorm:"type:varchar(255);not null" json:"reason"`
+	Details        string         `gorm:"type:text" json:"details,omitempty"`
+	ReporterID     uint           `gorm:"not null;index" json:"reporter_id"`
+	ContentType    string         `gorm:"type:ENUM('post', 'comment', 'user', 'question', 'answer');not null" json:"content_type"`
+	ContentID      string         `gorm:"type:varchar(255);not null" json:"content_id"`
+	ContentPreview string         `gorm:"type:text;not null" json:"content_preview"`
+	Status         ReportStatus   `gorm:"type:ENUM('pending', 'resolved', 'dismissed');default:'pending'" json:"status"`
+	ResolvedByID   *uint          `gorm:"index" json:"resolved_by_id,omitempty"`
+	CreatedAt      time.Time      `json:"created_at"`
+	UpdatedAt      time.Time      `json:"updated_at"`
+	DeletedAt      gorm.DeletedAt `gorm:"index" json:"-"`
 
-	// Relationships
-	User User `gorm:"foreignKey:UserID" json:"user,omitempty"`
+	Reporter   User  `gorm:"foreignKey:ReporterID" json:"reporter,omitempty"`
+	ResolvedBy *User `gorm:"foreignKey:ResolvedByID" json:"resolved_by,omitempty"`
 }

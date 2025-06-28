@@ -6,21 +6,47 @@ import (
 )
 
 type UserResponse struct {
-	ID        uint   `json:"id"`
-	Username  string `json:"username"`
-	Email     string `json:"email"`
-	Role      string `json:"role"`
-	CreatedAt string `json:"created_at"`
-	UpdatedAt string `json:"updated_at"`
+	ID             uint    `json:"id"`
+	Username       string  `json:"username"`
+	Email          string  `json:"email"`
+	Role           string  `json:"role"`
+	Status         string  `json:"status"`
+	FullName       string  `json:"fullName"`
+	Avatar         *string `json:"avatar,omitempty"`
+	Bio            *string `json:"bio,omitempty"`
+	Location       *string `json:"location,omitempty"`
+	Reputation     uint    `json:"reputation"`
+	FollowersCount uint    `json:"followersCount"`
+	FollowingCount uint    `json:"followingCount"`
+	LastLogin      *string `json:"lastLogin,omitempty"`
+	CreatedAt      string  `json:"createdAt"`
+	UpdatedAt      string  `json:"updatedAt"`
+	EmailVerified  bool    `json:"emailVerified"`
 }
 
 func ToUserResponse(user *models.User) UserResponse {
+	var lastLogin *string
+	if user.LastLogin != nil {
+		formatted := user.LastLogin.Format(time.RFC3339)
+		lastLogin = &formatted
+	}
+
 	return UserResponse{
-		ID:        user.ID,
-		Username:  user.Username,
-		Email:     user.Email,
-		Role:      string(user.Role),
-		CreatedAt: user.CreatedAt.Format(time.RFC3339),
-		UpdatedAt: user.UpdatedAt.Format(time.RFC3339),
+		ID:             user.ID,
+		Username:       user.Username,
+		Email:          user.Email,
+		Role:           string(user.Role),
+		Status:         string(user.Status),
+		Avatar:         user.Avatar,
+		FullName:       user.FullName,
+		Bio:            user.Bio,
+		Location:       user.Location,
+		Reputation:     user.Reputation,
+		FollowersCount: user.FollowersCount,
+		FollowingCount: user.FollowingCount,
+		LastLogin:      lastLogin,
+		CreatedAt:      user.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:      user.UpdatedAt.Format(time.RFC3339),
+		EmailVerified:  user.EmailVerified,
 	}
 }

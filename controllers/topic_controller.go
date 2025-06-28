@@ -27,9 +27,7 @@ func (tc *TopicController) CreateTopic(c *gin.Context) {
 		return
 	}
 
-	userID := c.GetUint("user_id") // Hệ thống hoặc admin tạo
-
-	topic, err := tc.topicService.CreateTopic(req.Name, req.Description, userID)
+	topic, err := tc.topicService.CreateTopic(req.Name, req.Description)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -136,17 +134,24 @@ func (tc *TopicController) DeleteTopic(c *gin.Context) {
 func (tc *TopicController) ListTopics(c *gin.Context) {
 	filters := make(map[string]interface{})
 
-	status := c.Query("status")
-	if status != "" {
+	if status := c.Query("status"); status != "" {
 		filters["status"] = status
 	}
-
-	search := c.Query("search")
-	if search != "" {
+	if search := c.Query("search"); search != "" {
 		filters["search"] = search
 	}
+	if page := c.Query("page"); page != "" {
+		if p, err := strconv.Atoi(page); err == nil {
+			filters["page"] = p
+		}
+	}
+	if limit := c.Query("limit"); limit != "" {
+		if l, err := strconv.Atoi(limit); err == nil {
+			filters["limit"] = l
+		}
+	}
 
-	topics, err := tc.topicService.ListTopics(filters)
+	topics, total, err := tc.topicService.ListTopics(filters)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list topics"})
 		return
@@ -159,46 +164,7 @@ func (tc *TopicController) ListTopics(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"topics": responseTopics,
-	})
-}
-
-func (tc *TopicController) ApproveTopic(c *gin.Context) {
-	idParam := c.Param("id")
-	id, err := strconv.ParseUint(idParam, 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid topic id"})
-		return
-	}
-
-	topic, err := tc.topicService.ApproveTopic(uint(id))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Topic approved successfully",
-		"topic":   responses.ToTopicResponse(topic),
-	})
-}
-
-func (tc *TopicController) RejectTopic(c *gin.Context) {
-	idParam := c.Param("id")
-	id, err := strconv.ParseUint(idParam, 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid topic id"})
-		return
-	}
-
-	topic, err := tc.topicService.RejectTopic(uint(id))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Topic rejected successfully",
-		"topic":   responses.ToTopicResponse(topic),
+		"total":  total,
 	})
 }
 
@@ -249,5 +215,59 @@ func (tc *TopicController) RemoveQuestionFromTopic(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Question removed from topic successfully",
+	})
+}
+
+func (tc *TopicController) FollowTopic(c *gin.Context) {
+	idParam := c.Param("id")
+	topicID, err := strconv.ParseUint(idParam, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid topic id"})
+		return
+	}
+
+	userID := c.GetUint("user_id")
+
+	if err := tc.topicService.FollowTopic(uint(userID), uint(topicID)); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	topic, err := tc.topicService.GetTopicByID(uint(topicID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve updated topic"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Topic followed successfully",
+		"topic":   responses.ToTopicResponse(topic),
+	})
+}
+
+func (tc *TopicController) UnfollowTopic(c *gin.Context) {
+	idParam := c.Param("id")
+	topicID, err := strconv.ParseUint(idParam, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid topic id"})
+		return
+	}
+
+	userID := c.GetUint("user_id")
+
+	if err := tc.topicService.UnfollowTopic(uint(userID), uint(topicID)); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	topic, err := tc.topicService.GetTopicByID(uint(topicID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve updated topic"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Topic unfollowed successfully",
+		"topic":   responses.ToTopicResponse(topic),
 	})
 }

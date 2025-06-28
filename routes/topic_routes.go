@@ -25,11 +25,11 @@ func TopicRoutes(db *gorm.DB, authorized *gin.RouterGroup, permService services.
 		topics.PUT("/:id", middlewares.CheckPermission(permService, "topic", "edit"), topicController.UpdateTopic)
 		topics.DELETE("/:id", middlewares.CheckPermission(permService, "topic", "delete"), topicController.DeleteTopic)
 		topics.GET("/", middlewares.CheckPermission(permService, "topic", "view"), topicController.ListTopics)
-		// Approval routes
-		topics.POST("/:id/approve", middlewares.CheckPermission(permService, "topic", "approve"), topicController.ApproveTopic)
-		topics.POST("/:id/reject", middlewares.CheckPermission(permService, "topic", "reject"), topicController.RejectTopic)
-		// Gắn hoặc xóa Question khỏi Topic
+
 		topics.POST("/:id/questions/:question_id", middlewares.CheckPermission(permService, "topic", "edit"), topicController.AddQuestionToTopic)
 		topics.DELETE("/:id/questions/:question_id", middlewares.CheckPermission(permService, "topic", "edit"), topicController.RemoveQuestionFromTopic)
+
+		topics.POST("/:id/follow", middlewares.CheckPermission(permService, "topic", "follow"), topicController.FollowTopic)
+		topics.POST("/:id/unfollow", middlewares.CheckPermission(permService, "topic", "follow"), topicController.UnfollowTopic)
 	}
 }

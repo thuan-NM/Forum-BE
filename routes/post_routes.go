@@ -21,8 +21,9 @@ func PostRoutes(db *gorm.DB, authorized *gin.RouterGroup, permService services.P
 		posts.POST("/", middlewares.CheckPermission(permService, "post", "create"), postController.CreatePost)
 		posts.GET("/:id", middlewares.CheckPermission(permService, "post", "view"), postController.GetPostById)
 		posts.PUT("/:id", middlewares.CheckPermission(permService, "post", "edit"), postController.UpdatePost)
+		posts.PUT("/:id/status", middlewares.CheckPermission(permService, "post", "edit_status"), postController.UpdatePostStatus)
 		posts.DELETE("/:id", middlewares.CheckPermission(permService, "post", "delete"), postController.DeletePost)
 		posts.GET("/", middlewares.CheckPermission(permService, "post", "view"), postController.ListPosts)
-
+		posts.GET("/all", middlewares.CheckPermission(permService, "post", "view"), postController.GetAllPosts)
 	}
 }
