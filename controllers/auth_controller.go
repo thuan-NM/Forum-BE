@@ -25,7 +25,7 @@ func (ac *AuthController) Register(c *gin.Context) {
 		Email         string `json:"email" binding:"required,email"`
 		Password      string `json:"password" binding:"required,min=6"`
 		FullName      string `json:"fullName" binding:"required"`
-		EmailVerified bool   `json:"emailVerified" binding:"required" default:"false"`
+		EmailVerified bool   `json:"emailVerified"  default:"false"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
