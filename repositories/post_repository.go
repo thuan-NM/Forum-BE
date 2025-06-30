@@ -159,7 +159,7 @@ func (r *postRepository) List(filters map[string]interface{}) ([]models.Post, in
 		}
 	}
 
-	query = query.Offset(offset).Limit(limit)
+	query = query.Offset(offset).Limit(limit).Order("created_at DESC")
 	if err := query.Find(&posts).Error; err != nil {
 		log.Printf("Error fetching posts: %v", err)
 		return nil, 0, err
@@ -206,7 +206,7 @@ func (r *postRepository) GetAllPosts(filters map[string]interface{}) ([]models.P
 	}
 
 	// Fetch data
-	query = query.Offset(offset).Limit(limit).Preload("User").Preload("Tags").Preload("Comments")
+	query = query.Offset(offset).Limit(limit).Preload("User").Preload("Tags").Preload("Comments").Order("created_at DESC")
 	if err := query.Find(&posts).Error; err != nil {
 		log.Printf("Error fetching posts: %v", err)
 		return nil, 0, err

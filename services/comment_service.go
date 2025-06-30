@@ -26,20 +26,20 @@ type CommentService interface {
 }
 
 type commentService struct {
-	commentRepo  repositories.CommentRepository
-	questionRepo repositories.QuestionRepository
-	answerRepo   repositories.AnswerRepository
-	redisClient  *redis.Client
-	db           *gorm.DB
+	commentRepo repositories.CommentRepository
+	postRepo    repositories.PostRepository
+	answerRepo  repositories.AnswerRepository
+	redisClient *redis.Client
+	db          *gorm.DB
 }
 
-func NewCommentService(cRepo repositories.CommentRepository, qRepo repositories.QuestionRepository, aRepo repositories.AnswerRepository, redisClient *redis.Client, db *gorm.DB) CommentService {
+func NewCommentService(cRepo repositories.CommentRepository, pRepo repositories.PostRepository, aRepo repositories.AnswerRepository, redisClient *redis.Client, db *gorm.DB) CommentService {
 	return &commentService{
-		commentRepo:  cRepo,
-		questionRepo: qRepo,
-		answerRepo:   aRepo,
-		redisClient:  redisClient,
-		db:           db,
+		commentRepo: cRepo,
+		postRepo:    pRepo,
+		answerRepo:  aRepo,
+		redisClient: redisClient,
+		db:          db,
 	}
 }
 
@@ -48,16 +48,12 @@ func (s *commentService) CreateComment(content string, userID uint, postID *uint
 		return nil, fmt.Errorf("content is required")
 	}
 
-	if postID == nil && answerID == nil {
-		return nil, fmt.Errorf("either post_id or answer_id must be provided")
-	}
-
 	if postID != nil {
-		question, err := s.questionRepo.GetQuestionByID(*postID)
+		post, err := s.postRepo.GetPostByID(*postID)
 		if err != nil {
 			return nil, fmt.Errorf("post not found: %v", err)
 		}
-		if question.Status != models.StatusApproved {
+		if post.Status != "approved" {
 			return nil, fmt.Errorf("cannot comment on an unapproved post")
 		}
 	}
@@ -93,17 +89,22 @@ func (s *commentService) CreateComment(content string, userID uint, postID *uint
 		return nil, fmt.Errorf("failed to create comment: %v", err)
 	}
 
+	// Invalidate cache
 	if postID != nil && parentID == nil {
-		s.updateCacheAfterCreate(comment, *postID, true)
+		s.invalidateCache(fmt.Sprintf("comments:post:%d:*", *postID))
 	}
 	if answerID != nil && parentID == nil {
-		s.updateCacheAfterCreate(comment, *answerID, false)
+		s.invalidateCache(fmt.Sprintf("comments:answer:%d:*", *answerID))
 	}
 	if parentID != nil {
+		s.invalidateCache(fmt.Sprintf("comments:comment:%d:*", *parentID))
+
+		// ✅ Thêm dòng này để cập nhật has_replies cho comment cha trong cache
 		s.updateReplyCacheAfterCreate(comment, *parentID)
 	}
 
 	return comment, nil
+
 }
 
 func (s *commentService) GetCommentByID(id uint) (*models.Comment, error) {

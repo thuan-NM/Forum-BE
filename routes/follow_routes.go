@@ -7,21 +7,31 @@ import (
 	"Forum_BE/services"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
-	
 	"gorm.io/gorm"
 )
 
 func FollowRoutes(db *gorm.DB, authorized *gin.RouterGroup, permService services.PermissionService, redisClient *redis.Client) {
-	// Follow routes
-	followRepo := repositories.NewFollowRepository(db)
-	followService := services.NewFollowService(followRepo, redisClient)
+	topicFollowRepo := repositories.NewTopicFollowRepository(db)
+	questionFollowRepo := repositories.NewQuestionFollowRepository(db)
+	userFollowRepo := repositories.NewUserFollowRepository(db)
+	followService := services.NewFollowService(topicFollowRepo, questionFollowRepo, userFollowRepo, redisClient, db)
 	followController := controllers.NewFollowController(followService)
 
 	follows := authorized.Group("/follows")
 	{
-		follows.GET("/:id/follow-status", middlewares.CheckPermission(permService, "follow", "view"), followController.CheckFollowStatus)
-		follows.GET("/:id/followers", middlewares.CheckPermission(permService, "follow", "view"), followController.GetFollowers)
-		follows.PUT("/:id/follow", middlewares.CheckPermission(permService, "follow", "create"), followController.FollowQuestion)
-		follows.DELETE("/:id/unfollow", middlewares.CheckPermission(permService, "follow", "delete"), followController.UnfollowQuestion)
+		follows.POST("/topics/:id/follow", middlewares.CheckPermission(permService, "follow", "create"), followController.FollowTopic)
+		follows.DELETE("/topics/:id/unfollow", middlewares.CheckPermission(permService, "follow", "delete"), followController.UnfollowTopic)
+		follows.GET("/topics/:id/follows", middlewares.CheckPermission(permService, "follow", "view"), followController.GetTopicFollows)
+
+		follows.POST("/questions/:id/follow", middlewares.CheckPermission(permService, "follow", "create"), followController.FollowQuestion)
+		follows.DELETE("/questions/:id/unfollow", middlewares.CheckPermission(permService, "follow", "delete"), followController.UnfollowQuestion)
+		follows.GET("/questions/:id/follows", middlewares.CheckPermission(permService, "follow", "view"), followController.GetQuestionFollows)
+		follows.GET("/questions/:id/status", middlewares.CheckPermission(permService, "follow", "view"), followController.GetQuestionFollowStatus)
+
+		follows.POST("/users/:id/follow", middlewares.CheckPermission(permService, "follow", "create"), followController.FollowUser)
+		follows.DELETE("/users/:id/unfollow", middlewares.CheckPermission(permService, "follow", "delete"), followController.UnfollowUser)
+		follows.GET("/users/:id/follows", middlewares.CheckPermission(permService, "follow", "view"), followController.GetUserFollows)
+
+		follows.GET("/me/topics", middlewares.CheckPermission(permService, "follow", "view"), followController.GetFollowedTopics)
 	}
 }

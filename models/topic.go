@@ -22,6 +22,6 @@ type Topic struct {
 	DeletedAt      gorm.DeletedAt `gorm:"index" json:"-"`
 	FollowersCount int            `gorm:"default:0" json:"followers_count"`
 
-	Questions []Question `json:"questions,omitempty" gorm:"foreignKey:TopicID"`
-	Followers []User     `gorm:"many2many:user_topics;" json:"followers,omitempty"`
+	Questions    []Question    `json:"questions,omitempty" gorm:"foreignKey:TopicID"`
+	TopicFollows []TopicFollow `json:"follows,omitempty" gorm:"foreignKey:TopicID"`
 }

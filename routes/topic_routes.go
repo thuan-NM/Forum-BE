@@ -12,8 +12,8 @@ import (
 
 func TopicRoutes(db *gorm.DB, authorized *gin.RouterGroup, permService services.PermissionService, redisClient *redis.Client) {
 	topicRepo := repositories.NewTopicRepository(db)
-	topicService := services.NewTopicService(topicRepo, redisClient)
-	topicController := controllers.NewTopicController(topicService)
+	topicService := services.NewTopicService(topicRepo, redisClient, db)
+	topicController := controllers.NewTopicControllerWithDB(db, topicService)
 
 	topics := authorized.Group("/topics")
 	{
@@ -26,10 +26,8 @@ func TopicRoutes(db *gorm.DB, authorized *gin.RouterGroup, permService services.
 		topics.DELETE("/:id", middlewares.CheckPermission(permService, "topic", "delete"), topicController.DeleteTopic)
 		topics.GET("/", middlewares.CheckPermission(permService, "topic", "view"), topicController.ListTopics)
 
+		// Sửa :topic_id thành :id để tránh xung đột
 		topics.POST("/:id/questions/:question_id", middlewares.CheckPermission(permService, "topic", "edit"), topicController.AddQuestionToTopic)
 		topics.DELETE("/:id/questions/:question_id", middlewares.CheckPermission(permService, "topic", "edit"), topicController.RemoveQuestionFromTopic)
-
-		topics.POST("/:id/follow", middlewares.CheckPermission(permService, "topic", "follow"), topicController.FollowTopic)
-		topics.POST("/:id/unfollow", middlewares.CheckPermission(permService, "topic", "follow"), topicController.UnfollowTopic)
 	}
 }

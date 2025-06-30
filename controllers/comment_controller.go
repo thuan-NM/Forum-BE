@@ -25,12 +25,10 @@ func (cc *CommentController) CreateComment(c *gin.Context) {
 		AnswerID *uint  `json:"answer_id"`
 		ParentID *uint  `json:"parent_id"`
 	}
-
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request: " + err.Error()})
 		return
 	}
-
 	userID := c.GetUint("user_id")
 	comment, err := cc.commentService.CreateComment(req.Content, userID, req.PostID, req.AnswerID, req.ParentID)
 	if err != nil {

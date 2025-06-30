@@ -5,15 +5,14 @@ import (
 	"time"
 )
 
-// FollowResponse định nghĩa cấu trúc dữ liệu trả về cho Follow
 type FollowResponse struct {
-	UserID     uint   `json:"id"`
-	QuestionID uint   `json:"question_id"`
-	CreatedAt  string `json:"created_at"`
-	DeletedAt  string `json:"deleted_at"`
+	UserID         uint   `json:"user_id"`
+	FollowableID   uint   `json:"followable_id"`
+	FollowableType string `json:"followable_type"`
+	CreatedAt      string `json:"created_at"`
+	DeletedAt      string `json:"deleted_at"`
 }
 
-// ToFollowResponse chuyển đổi từ model Follow sang FollowResponse
 func ToFollowResponse(follow *models.Follow) FollowResponse {
 	var deletedAt string
 	if follow.DeletedAt.Valid {
@@ -21,9 +20,10 @@ func ToFollowResponse(follow *models.Follow) FollowResponse {
 	}
 
 	return FollowResponse{
-		UserID:     follow.UserID,
-		QuestionID: follow.QuestionID,
-		CreatedAt:  follow.CreatedAt.Format(time.RFC3339),
-		DeletedAt:  deletedAt,
+		UserID:         follow.UserID,
+		FollowableID:   follow.FollowableID,
+		FollowableType: follow.FollowableType,
+		CreatedAt:      follow.CreatedAt.Format(time.RFC3339),
+		DeletedAt:      deletedAt,
 	}
 }

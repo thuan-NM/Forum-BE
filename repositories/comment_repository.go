@@ -121,7 +121,7 @@ func (r *commentRepository) ListComments(filters map[string]interface{}) ([]mode
 	}
 
 	offset := (page - 1) * limit
-	err := query.Limit(limit).Offset(offset).
+	err := query.Limit(limit).Offset(offset).Order("created_at DESC").
 		Select("comments.*, EXISTS (SELECT 1 FROM comments c WHERE c.parent_id = comments.id AND c.deleted_at IS NULL) AS has_replies").
 		Find(&comments).Error
 	if err != nil {
@@ -159,7 +159,8 @@ func (r *commentRepository) ListReplies(parentID uint, filters map[string]interf
 	}
 
 	offset := (page - 1) * limit
-	err := query.Limit(limit).Offset(offset).Find(&comments).Error
+	err := query.Limit(limit).Order("created_at DESC").
+		Offset(offset).Find(&comments).Error
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to list replies: %v", err)
 	}
@@ -212,7 +213,8 @@ func (r *commentRepository) GetAllComments(filters map[string]interface{}) ([]mo
 	}
 
 	offset := (page - 1) * limit
-	query = query.Offset(offset).Limit(limit).Preload("User").Preload("Post").Preload("Answer").Preload("Parent")
+	query = query.Offset(offset).Limit(limit).Preload("User").Order("created_at DESC").
+		Preload("Post").Preload("Answer").Preload("Parent")
 	if err := query.Find(&comments).Error; err != nil {
 		log.Printf("Error fetching comment: %v", err)
 		return nil, 0, err

@@ -14,7 +14,7 @@ func QuestionRoutes(db *gorm.DB, authorized *gin.RouterGroup, permService servic
 	topicRepo := repositories.NewTopicRepository(db)
 	questionRepo := repositories.NewQuestionRepository(db)
 
-	topicService := services.NewTopicService(topicRepo, redisClient)
+	topicService := services.NewTopicService(topicRepo, redisClient, db)
 	questionService := services.NewQuestionService(questionRepo, topicService, redisClient)
 
 	questionController := controllers.NewQuestionController(questionService)
