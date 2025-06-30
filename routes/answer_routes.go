@@ -12,7 +12,7 @@ import (
 
 func AnswerRoutes(db *gorm.DB, authorized *gin.RouterGroup, permService services.PermissionService, redisClient *redis.Client) {
 	topicRepo := repositories.NewTopicRepository(db)
-	topicService := services.NewTopicService(topicRepo, redisClient)
+	topicService := services.NewTopicService(topicRepo, redisClient, db)
 	questionRepo := repositories.NewQuestionRepository(db)
 	questionService := services.NewQuestionService(questionRepo, topicService, redisClient)
 	answerRepo := repositories.NewAnswerRepository(db)

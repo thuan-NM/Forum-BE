@@ -15,8 +15,6 @@ type TopicRepository interface {
 	ListTopics(filters map[string]interface{}) ([]models.Topic, int, error)
 	AddQuestionToTopic(questionID, topicID uint) error
 	RemoveQuestionFromTopic(questionID, topicID uint) error
-	FollowTopic(userID, topicID uint) error
-	UnfollowTopic(userID, topicID uint) error
 }
 
 type topicRepository struct {
@@ -111,12 +109,4 @@ func (r *topicRepository) AddQuestionToTopic(questionID, topicID uint) error {
 
 func (r *topicRepository) RemoveQuestionFromTopic(questionID, topicID uint) error {
 	return r.db.Exec("DELETE FROM question_topics WHERE question_id = ? AND topic_id = ?", questionID, topicID).Error
-}
-
-func (r *topicRepository) FollowTopic(userID, topicID uint) error {
-	return r.db.Exec("INSERT INTO user_topics (user_id, topic_id) VALUES (?, ?)", userID, topicID).Error
-}
-
-func (r *topicRepository) UnfollowTopic(userID, topicID uint) error {
-	return r.db.Exec("DELETE FROM user_topics WHERE user_id = ? AND topic_id = ?", userID, topicID).Error
 }

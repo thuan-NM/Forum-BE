@@ -4,15 +4,21 @@ import (
 	"Forum_BE/responses"
 	"Forum_BE/services"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 	"net/http"
 	"strconv"
 )
 
 type TopicController struct {
-	topicService services.TopicService
+	topicService  services.TopicService
+	followService services.FollowService
 }
 
 func NewTopicController(t services.TopicService) *TopicController {
+	return &TopicController{topicService: t}
+}
+
+func NewTopicControllerWithDB(db *gorm.DB, t services.TopicService) *TopicController {
 	return &TopicController{topicService: t}
 }
 
@@ -215,59 +221,5 @@ func (tc *TopicController) RemoveQuestionFromTopic(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Question removed from topic successfully",
-	})
-}
-
-func (tc *TopicController) FollowTopic(c *gin.Context) {
-	idParam := c.Param("id")
-	topicID, err := strconv.ParseUint(idParam, 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid topic id"})
-		return
-	}
-
-	userID := c.GetUint("user_id")
-
-	if err := tc.topicService.FollowTopic(uint(userID), uint(topicID)); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	topic, err := tc.topicService.GetTopicByID(uint(topicID))
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve updated topic"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Topic followed successfully",
-		"topic":   responses.ToTopicResponse(topic),
-	})
-}
-
-func (tc *TopicController) UnfollowTopic(c *gin.Context) {
-	idParam := c.Param("id")
-	topicID, err := strconv.ParseUint(idParam, 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid topic id"})
-		return
-	}
-
-	userID := c.GetUint("user_id")
-
-	if err := tc.topicService.UnfollowTopic(uint(userID), uint(topicID)); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	topic, err := tc.topicService.GetTopicByID(uint(topicID))
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve updated topic"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Topic unfollowed successfully",
-		"topic":   responses.ToTopicResponse(topic),
 	})
 }

@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/go-redis/redis/v8"
+	"gorm.io/gorm"
 	"log"
 	"time"
 )
@@ -16,23 +17,22 @@ type TopicService interface {
 	CreateTopic(name, description string) (*models.Topic, error)
 	ProposeTopic(name, description string, userID uint) (*models.Topic, error)
 	GetTopicByID(id uint) (*models.Topic, error)
+	GetTopicByName(name string) (*models.Topic, error)
 	UpdateTopic(id uint, name, description string) (*models.Topic, error)
 	DeleteTopic(id uint) error
 	ListTopics(filters map[string]interface{}) ([]models.Topic, int, error)
-	FollowTopic(userID, topicID uint) error
-	UnfollowTopic(userID, topicID uint) error
 	AddQuestionToTopic(questionID, topicID uint) error
-	GetTopicByName(name string) (*models.Topic, error)
 	RemoveQuestionFromTopic(questionID, topicID uint) error
 }
 
 type topicService struct {
 	topicRepo   repositories.TopicRepository
 	redisClient *redis.Client
+	db          *gorm.DB // Add db field to access GORM for follow cleanup
 }
 
-func NewTopicService(tRepo repositories.TopicRepository, redisClient *redis.Client) TopicService {
-	return &topicService{topicRepo: tRepo, redisClient: redisClient}
+func NewTopicService(tRepo repositories.TopicRepository, redisClient *redis.Client, db *gorm.DB) TopicService {
+	return &topicService{topicRepo: tRepo, redisClient: redisClient, db: db}
 }
 
 func (s *topicService) GetTopicByName(name string) (*models.Topic, error) {
@@ -179,7 +179,14 @@ func (s *topicService) UpdateTopic(id uint, name, description string) (*models.T
 }
 
 func (s *topicService) DeleteTopic(id uint) error {
-	err := s.topicRepo.DeleteTopic(id)
+	// Delete related Follow records
+	err := s.db.Where("followable_id = ? AND followable_type = ?", id, "Topic").Delete(&models.Follow{}).Error
+	if err != nil {
+		log.Printf("Failed to delete related follows for topic %d: %v", id, err)
+		return err
+	}
+
+	err = s.topicRepo.DeleteTopic(id)
 	if err != nil {
 		log.Printf("Failed to delete topic %d: %v", id, err)
 		return err
@@ -188,6 +195,7 @@ func (s *topicService) DeleteTopic(id uint) error {
 	// Invalidate cache
 	s.invalidateCache(fmt.Sprintf("topic:%d", id))
 	s.invalidateCache("topics:*")
+	s.invalidateCache("follows:Topic:*")
 
 	return nil
 }
@@ -262,60 +270,6 @@ func (s *topicService) RemoveQuestionFromTopic(questionID, topicID uint) error {
 	s.invalidateCache("topics:*")
 	s.invalidateCache(fmt.Sprintf("question:%d", questionID))
 	s.invalidateCache("questions:*")
-
-	return nil
-}
-
-func (s *topicService) FollowTopic(userID, topicID uint) error {
-	topic, err := s.topicRepo.GetTopicByID(topicID)
-	if err != nil {
-		return err
-	}
-
-	err = s.topicRepo.FollowTopic(userID, topicID)
-	if err != nil {
-		log.Printf("Failed to follow topic %d by user %d: %v", topicID, userID, err)
-		return err
-	}
-
-	// Update followers count
-	topic.FollowersCount++
-	if err := s.topicRepo.UpdateTopic(topic); err != nil {
-		log.Printf("Failed to update followers count for topic %d: %v", topicID, err)
-		return err
-	}
-
-	// Invalidate cache
-	s.invalidateCache(fmt.Sprintf("topic:%d", topicID))
-	s.invalidateCache("topics:*")
-
-	return nil
-}
-
-func (s *topicService) UnfollowTopic(userID, topicID uint) error {
-	topic, err := s.topicRepo.GetTopicByID(topicID)
-	if err != nil {
-		return err
-	}
-
-	err = s.topicRepo.UnfollowTopic(userID, topicID)
-	if err != nil {
-		log.Printf("Failed to unfollow topic %d by user %d: %v", topicID, userID, err)
-		return err
-	}
-
-	// Update followers count
-	if topic.FollowersCount > 0 {
-		topic.FollowersCount--
-	}
-	if err := s.topicRepo.UpdateTopic(topic); err != nil {
-		log.Printf("Failed to update followers count for topic %d: %v", topicID, err)
-		return err
-	}
-
-	// Invalidate cache
-	s.invalidateCache(fmt.Sprintf("topic:%d", topicID))
-	s.invalidateCache("topics:*")
 
 	return nil
 }
