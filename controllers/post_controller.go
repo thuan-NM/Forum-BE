@@ -4,6 +4,7 @@ import (
 	"Forum_BE/models"
 	"Forum_BE/responses"
 	"Forum_BE/services"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"strconv"
@@ -24,6 +25,7 @@ func (pc *PostController) CreatePost(c *gin.Context) {
 		Tags    []uint `json:"tags"`
 	}
 
+	fmt.Println("hello")
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -31,7 +33,7 @@ func (pc *PostController) CreatePost(c *gin.Context) {
 
 	userID := c.GetUint("user_id")
 
-	post, err := pc.postService.CreatePost(req.Content, userID, req.Tags)
+	post, err := pc.postService.CreatePost(req.Content, userID, req.Title, req.Tags)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

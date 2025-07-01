@@ -53,5 +53,6 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, jwtSecret string, redisClient *redi
 		ReportRoutes(db, authorized, permService, redisClient)
 		PermissionRoutes(authorized, permService)
 		PassRoutes(db, authorized, permService, redisClient)
+		ReactionRoutes(db, authorized, permService, redisClient)
 	}
 }

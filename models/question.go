@@ -33,11 +33,11 @@ type Question struct {
 	UpdatedAt         time.Time         `json:"updated_at"`
 	DeletedAt         gorm.DeletedAt    `gorm:"index" json:"-"`
 
-	User          User           `json:"user,omitempty" gorm:"foreignKey:UserID"`
-	Topic         Topic          `json:"topic,omitempty" gorm:"foreignKey:TopicID"`
-	Answers       []Answer       `json:"answers,omitempty" gorm:"foreignKey:QuestionID"`
-	Reactions     []Reaction     `json:"reactions,omitempty" gorm:"polymorphic:Reactable;"`
-	Follows       []Follow       `json:"follows,omitempty" gorm:"foreignKey:QuestionID;references:ID;constraint:OnDelete:CASCADE;"`
-	Attachments   []Attachment   `json:"attachments,omitempty" gorm:"polymorphic:Entity;"`
-	Notifications []Notification `json:"notifications,omitempty" gorm:"polymorphic:Entity;"`
+	User          User             `json:"user,omitempty" gorm:"foreignKey:UserID"`
+	Topic         Topic            `json:"topic,omitempty" gorm:"foreignKey:TopicID"`
+	Answers       []Answer         `json:"answers,omitempty" gorm:"foreignKey:QuestionID"`
+	Reactions     []Reaction       `json:"reactions,omitempty" gorm:"polymorphic:Reactable;"`
+	Follows       []QuestionFollow `json:"follows,omitempty" gorm:"foreignKey:QuestionID"`
+	Attachments   []Attachment     `json:"attachments,omitempty" gorm:"polymorphic:Entity;"`
+	Notifications []Notification   `json:"notifications,omitempty" gorm:"polymorphic:Entity;"`
 }
