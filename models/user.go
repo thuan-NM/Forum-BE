@@ -36,6 +36,7 @@ type User struct {
 	Posts            []Post         `gorm:"foreignKey:UserID" json:"posts,omitempty"`
 	Questions        []Question     `gorm:"foreignKey:UserID" json:"questions,omitempty"`
 	Answers          []Answer       `gorm:"foreignKey:UserID" json:"answers,omitempty"`
+	Reactions        []Reaction     `gorm:"foreignKey:UserID" json:"reactions,omitempty"` // Thêm mối quan hệ với Reaction
 	Comments         []Comment      `gorm:"foreignKey:UserID" json:"comments,omitempty"`
 	Notifications    []Notification `gorm:"foreignKey:UserID" json:"notifications,omitempty"`
 	SentMessages     []Message      `gorm:"foreignKey:FromUserID" json:"sent_messages,omitempty"`

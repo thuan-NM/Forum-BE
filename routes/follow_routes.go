@@ -22,6 +22,7 @@ func FollowRoutes(db *gorm.DB, authorized *gin.RouterGroup, permService services
 		follows.POST("/topics/:id/follow", middlewares.CheckPermission(permService, "follow", "create"), followController.FollowTopic)
 		follows.DELETE("/topics/:id/unfollow", middlewares.CheckPermission(permService, "follow", "delete"), followController.UnfollowTopic)
 		follows.GET("/topics/:id/follows", middlewares.CheckPermission(permService, "follow", "view"), followController.GetTopicFollows)
+		follows.GET("/topics/:id/status", middlewares.CheckPermission(permService, "follow", "view"), followController.GetTopicFollowStatus)
 
 		follows.POST("/questions/:id/follow", middlewares.CheckPermission(permService, "follow", "create"), followController.FollowQuestion)
 		follows.DELETE("/questions/:id/unfollow", middlewares.CheckPermission(permService, "follow", "delete"), followController.UnfollowQuestion)
@@ -31,6 +32,7 @@ func FollowRoutes(db *gorm.DB, authorized *gin.RouterGroup, permService services
 		follows.POST("/users/:id/follow", middlewares.CheckPermission(permService, "follow", "create"), followController.FollowUser)
 		follows.DELETE("/users/:id/unfollow", middlewares.CheckPermission(permService, "follow", "delete"), followController.UnfollowUser)
 		follows.GET("/users/:id/follows", middlewares.CheckPermission(permService, "follow", "view"), followController.GetUserFollows)
+		follows.GET("/users/:id/status", middlewares.CheckPermission(permService, "follow", "view"), followController.GetUserFollowStatus)
 
 		follows.GET("/me/topics", middlewares.CheckPermission(permService, "follow", "view"), followController.GetFollowedTopics)
 	}

@@ -24,6 +24,8 @@ type FollowService interface {
 	GetUserFollows(userID uint) ([]models.UserFollow, error)
 	GetFollowedTopics(userID uint) ([]models.Topic, error)
 	GetQuestionFollowStatus(userID uint, questionID uint) (bool, error)
+	GetTopicFollowStatus(userID uint, topicID uint) (bool, error)       // Thêm hàm mới
+	GetUserFollowStatus(userID uint, followedUserID uint) (bool, error) // Thêm hàm mới
 }
 
 type followService struct {
@@ -124,7 +126,7 @@ func (s *followService) FollowQuestion(userID, questionID uint) error {
 	}
 
 	cacheKey := fmt.Sprintf("follows:question:%d:user:%d", questionID, userID)
-	s.invalidateCache(cacheKey) // Invalidate cache trạng thái cụ thể
+	s.invalidateCache(cacheKey)
 	log.Printf("Invalidated cache for key: %s", cacheKey)
 	s.invalidateCache(fmt.Sprintf("question:%d", questionID))
 	s.invalidateCache("questions:*")
@@ -144,7 +146,7 @@ func (s *followService) UnfollowQuestion(userID, questionID uint) error {
 	}
 
 	cacheKey := fmt.Sprintf("follows:question:%d:user:%d", questionID, userID)
-	s.invalidateCache(cacheKey) // Invalidate cache trạng thái cụ thể
+	s.invalidateCache(cacheKey)
 	log.Printf("Invalidated cache for key: %s", cacheKey)
 	s.invalidateCache(fmt.Sprintf("question:%d", questionID))
 	s.invalidateCache("questions:*")
@@ -153,17 +155,14 @@ func (s *followService) UnfollowQuestion(userID, questionID uint) error {
 }
 
 func (s *followService) GetQuestionFollowStatus(userID, questionID uint) (bool, error) {
-	// Luôn kiểm tra database trước, chỉ dùng cache như một lớp tăng tốc
 	cacheKey := fmt.Sprintf("follows:question:%d:user:%d", questionID, userID)
 	ctx := context.Background()
 
-	// Kiểm tra cache (tùy chọn, có thể bỏ nếu không cần)
 	cached, err := s.redisClient.Get(ctx, cacheKey).Result()
 	if err == nil {
 		var isFollowing bool
 		if err := json.Unmarshal([]byte(cached), &isFollowing); err == nil {
 			log.Printf("Cache hit for follows:question:%d:user:%d", questionID, userID)
-			// Kiểm tra lại database để đảm bảo đồng bộ
 			dbCheck, dbErr := s.questionFollowRepo.ExistsByQuestionAndUser(questionID, userID)
 			if dbErr != nil {
 				log.Printf("Database check failed, falling back to cache: %v", dbErr)
@@ -182,13 +181,11 @@ func (s *followService) GetQuestionFollowStatus(userID, questionID uint) (bool, 
 		log.Printf("Redis error for follows:question:%d:user:%d: %v", questionID, userID, err)
 	}
 
-	// Lấy từ database nếu không có cache hoặc cache lỗi
 	isFollowing, err := s.questionFollowRepo.ExistsByQuestionAndUser(questionID, userID)
 	if err != nil {
 		return false, fmt.Errorf("failed to check follow status: %v", err)
 	}
 
-	// Lưu vào cache với TTL ngắn
 	data, err := json.Marshal(isFollowing)
 	if err == nil {
 		if err := s.redisClient.Set(ctx, cacheKey, data, 30*time.Second).Err(); err != nil {
@@ -200,6 +197,95 @@ func (s *followService) GetQuestionFollowStatus(userID, questionID uint) (bool, 
 
 	return isFollowing, nil
 }
+
+func (s *followService) GetTopicFollowStatus(userID, topicID uint) (bool, error) {
+	cacheKey := fmt.Sprintf("follows:topic:%d:user:%d", topicID, userID)
+	ctx := context.Background()
+
+	cached, err := s.redisClient.Get(ctx, cacheKey).Result()
+	if err == nil {
+		var isFollowing bool
+		if err := json.Unmarshal([]byte(cached), &isFollowing); err == nil {
+			log.Printf("Cache hit for follows:topic:%d:user:%d", topicID, userID)
+			dbCheck, dbErr := s.topicFollowRepo.ExistsByTopicAndUser(topicID, userID)
+			if dbErr != nil {
+				log.Printf("Database check failed, falling back to cache: %v", dbErr)
+				return isFollowing, nil
+			}
+			if dbCheck != isFollowing {
+				log.Printf("Cache outdated, updating cache for key: %s", cacheKey)
+				data, _ := json.Marshal(dbCheck)
+				s.redisClient.Set(ctx, cacheKey, data, 30*time.Second)
+				return dbCheck, nil
+			}
+			return isFollowing, nil
+		}
+	}
+	if err != redis.Nil {
+		log.Printf("Redis error for follows:topic:%d:user:%d: %v", topicID, userID, err)
+	}
+
+	isFollowing, err := s.topicFollowRepo.ExistsByTopicAndUser(topicID, userID)
+	if err != nil {
+		return false, fmt.Errorf("failed to check follow status: %v", err)
+	}
+
+	data, err := json.Marshal(isFollowing)
+	if err == nil {
+		if err := s.redisClient.Set(ctx, cacheKey, data, 30*time.Second).Err(); err != nil {
+			log.Printf("Failed to set cache for follows:topic:%d:user:%d: %v", topicID, userID, err)
+		} else {
+			log.Printf("Cache set for key: %s with value: %v", cacheKey, isFollowing)
+		}
+	}
+
+	return isFollowing, nil
+}
+
+func (s *followService) GetUserFollowStatus(userID, followedUserID uint) (bool, error) {
+	cacheKey := fmt.Sprintf("follows:user:%d:user:%d", followedUserID, userID)
+	ctx := context.Background()
+
+	cached, err := s.redisClient.Get(ctx, cacheKey).Result()
+	if err == nil {
+		var isFollowing bool
+		if err := json.Unmarshal([]byte(cached), &isFollowing); err == nil {
+			log.Printf("Cache hit for follows:user:%d:user:%d", followedUserID, userID)
+			dbCheck, dbErr := s.userFollowRepo.ExistsByUserAndFollower(followedUserID, userID)
+			if dbErr != nil {
+				log.Printf("Database check failed, falling back to cache: %v", dbErr)
+				return isFollowing, nil
+			}
+			if dbCheck != isFollowing {
+				log.Printf("Cache outdated, updating cache for key: %s", cacheKey)
+				data, _ := json.Marshal(dbCheck)
+				s.redisClient.Set(ctx, cacheKey, data, 30*time.Second)
+				return dbCheck, nil
+			}
+			return isFollowing, nil
+		}
+	}
+	if err != redis.Nil {
+		log.Printf("Redis error for follows:user:%d:user:%d: %v", followedUserID, userID, err)
+	}
+
+	isFollowing, err := s.userFollowRepo.ExistsByUserAndFollower(followedUserID, userID)
+	if err != nil {
+		return false, fmt.Errorf("failed to check follow status: %v", err)
+	}
+
+	data, err := json.Marshal(isFollowing)
+	if err == nil {
+		if err := s.redisClient.Set(ctx, cacheKey, data, 30*time.Second).Err(); err != nil {
+			log.Printf("Failed to set cache for follows:user:%d:user:%d: %v", followedUserID, userID, err)
+		} else {
+			log.Printf("Cache set for key: %s with value: %v", cacheKey, isFollowing)
+		}
+	}
+
+	return isFollowing, nil
+}
+
 func (s *followService) FollowUser(userID, followedUserID uint) error {
 	var user models.User
 	if err := s.db.Model(&models.User{}).Where("id = ?", followedUserID).First(&user).Error; err != nil {

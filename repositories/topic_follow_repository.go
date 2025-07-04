@@ -9,6 +9,7 @@ type TopicFollowRepository interface {
 	CreateFollow(follow *models.TopicFollow) error
 	DeleteFollow(userID, topicID uint) error
 	GetFollowsByTopic(topicID uint) ([]models.TopicFollow, error)
+	ExistsByTopicAndUser(topicID, userID uint) (bool, error) // Thêm method
 }
 
 type topicFollowRepository struct {
@@ -31,4 +32,10 @@ func (r *topicFollowRepository) GetFollowsByTopic(topicID uint) ([]models.TopicF
 	var follows []models.TopicFollow
 	err := r.db.Where("topic_id = ?", topicID).Find(&follows).Error
 	return follows, err
+}
+
+func (r *topicFollowRepository) ExistsByTopicAndUser(topicID, userID uint) (bool, error) {
+	var count int64
+	err := r.db.Model(&models.TopicFollow{}).Where("topic_id = ? AND user_id = ?", topicID, userID).Count(&count).Error
+	return count > 0, err
 }
