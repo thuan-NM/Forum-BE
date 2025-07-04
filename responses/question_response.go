@@ -10,7 +10,6 @@ type QuestionResponse struct {
 	Title             string       `json:"title"`
 	Description       string       `json:"description,omitempty"` // Uses Description field
 	AnswerCount       int          `json:"answersCount"`
-	ReactionCount     int          `json:"reactionsCount"`
 	LastFollowed      string       `json:"lastFollowed"`
 	FollowCount       int          `json:"followsCount"`
 	Topic             models.Topic `json:"topic"`
@@ -38,7 +37,6 @@ func ToQuestionResponse(question *models.Question) QuestionResponse {
 		Description:       question.Description,
 		Author:            question.User,
 		AnswerCount:       len(question.Answers),
-		ReactionCount:     len(question.Reactions),
 		LastFollowed:      lastFollowed,
 		FollowCount:       len(question.Follows),
 		Topic:             question.Topic,

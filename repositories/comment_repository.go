@@ -16,9 +16,10 @@ type CommentRepository interface {
 	DeleteComment(id uint) error
 	ListComments(filters map[string]interface{}) ([]models.Comment, int64, error)
 	ListReplies(parentID uint, filters map[string]interface{}) ([]models.Comment, int64, error)
-	GetAllComments(filters map[string]interface{}) ([]models.Comment, int64, error) // Thêm method mới
+	GetAllComments(filters map[string]interface{}) ([]models.Comment, int64, error)
 	UpdateCommentStatus(id uint, status string) error
 	GetAllChildCommentIDs(parentID uint) ([]uint, error)
+	UpdateCommentAttachment(attachment *models.Attachment) error
 }
 
 type commentRepository struct {
@@ -35,7 +36,7 @@ func (r *commentRepository) CreateComment(comment *models.Comment) error {
 
 func (r *commentRepository) GetCommentByID(id uint) (*models.Comment, error) {
 	var comment models.Comment
-	err := r.db.Preload("User").
+	err := r.db.Preload("User").Preload("Attachments").
 		Where("deleted_at IS NULL").
 		First(&comment, id).Error
 	if err != nil {
@@ -47,6 +48,7 @@ func (r *commentRepository) GetCommentByID(id uint) (*models.Comment, error) {
 func (r *commentRepository) UpdateComment(comment *models.Comment) error {
 	return r.db.Save(comment).Error
 }
+
 func (r *commentRepository) DeleteComment(id uint) error {
 	childIDs, err := r.GetAllChildCommentIDs(id)
 	if err != nil {
@@ -77,23 +79,22 @@ func (r *commentRepository) GetAllChildCommentIDs(parentID uint) ([]uint, error)
 			return nil, fmt.Errorf("failed to get direct children for comment %d: %v", currentID, err)
 		}
 
-		// Thêm các comment con vào childIDs và queue
 		childIDs = append(childIDs, directChildren...)
 		queue = append(queue, directChildren...)
 	}
 
 	return childIDs, nil
 }
+
 func (r *commentRepository) ListComments(filters map[string]interface{}) ([]models.Comment, int64, error) {
 	var comments []models.Comment
 
-	query := r.db.Preload("User").
+	query := r.db.Preload("User").Preload("Attachments").
 		Where("parent_id IS NULL").
 		Where("deleted_at IS NULL")
 	page, okPage := filters["page"].(int)
 	limit, okLimit := filters["limit"].(int)
 
-	// Default pagination values
 	if !okPage || page < 1 {
 		page = 1
 	}
@@ -103,7 +104,6 @@ func (r *commentRepository) ListComments(filters map[string]interface{}) ([]mode
 	allowedFilters := map[string]bool{
 		"post_id":   true,
 		"answer_id": true,
-		//"user_id":   true,
 	}
 	if filters != nil {
 		for key, value := range filters {
@@ -141,12 +141,11 @@ func (r *commentRepository) ListComments(filters map[string]interface{}) ([]mode
 
 func (r *commentRepository) ListReplies(parentID uint, filters map[string]interface{}) ([]models.Comment, int64, error) {
 	var comments []models.Comment
-	query := r.db.Preload("User").
+	query := r.db.Preload("User").Preload("Attachments").
 		Where("parent_id = ? AND deleted_at IS NULL", parentID)
 	page, okPage := filters["page"].(int)
 	limit, okLimit := filters["limit"].(int)
 
-	// Default pagination values
 	if !okPage || page < 1 {
 		page = 1
 	}
@@ -175,9 +174,10 @@ func (r *commentRepository) ListReplies(parentID uint, filters map[string]interf
 
 	return comments, total, nil
 }
+
 func (r *commentRepository) GetAllComments(filters map[string]interface{}) ([]models.Comment, int64, error) {
 	var comments []models.Comment
-	query := r.db.Model(&models.Comment{})
+	query := r.db.Model(&models.Comment{}).Preload("User").Preload("Attachments").Preload("Post").Preload("Answer").Preload("Parent")
 	typefilter, okType := filters["typefilter"].(string)
 	status, okStatus := filters["status"].(string)
 	search, ok := filters["search"].(string)
@@ -213,8 +213,7 @@ func (r *commentRepository) GetAllComments(filters map[string]interface{}) ([]mo
 	}
 
 	offset := (page - 1) * limit
-	query = query.Offset(offset).Limit(limit).Preload("User").Order("created_at DESC").
-		Preload("Post").Preload("Answer").Preload("Parent")
+	query = query.Offset(offset).Limit(limit).Order("created_at DESC")
 	if err := query.Find(&comments).Error; err != nil {
 		log.Printf("Error fetching comment: %v", err)
 		return nil, 0, err
@@ -234,5 +233,13 @@ func (r *commentRepository) UpdateCommentStatus(id uint, status string) error {
 	return r.db.Model(&models.Comment{}).Where("id = ?", id).Updates(map[string]interface{}{
 		"status":     status,
 		"updated_at": time.Now(),
+	}).Error
+}
+
+func (r *commentRepository) UpdateCommentAttachment(attachment *models.Attachment) error {
+	return r.db.Model(&models.Attachment{}).Where("id = ?", attachment.ID).Updates(map[string]interface{}{
+		"entity_type": attachment.EntityType,
+		"entity_id":   attachment.EntityID,
+		"updated_at":  time.Now(),
 	}).Error
 }

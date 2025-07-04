@@ -22,5 +22,8 @@ func ReactionRoutes(db *gorm.DB, authorized *gin.RouterGroup, permService servic
 		reactions.PUT("/:id", middlewares.CheckPermission(permService, "reaction", "edit"), reactionController.UpdateReaction)
 		reactions.DELETE("/:id", middlewares.CheckPermission(permService, "reaction", "delete"), reactionController.DeleteReaction)
 		reactions.GET("/", middlewares.CheckPermission(permService, "reaction", "view"), reactionController.ListReactions)
+		reactions.GET("/count", middlewares.CheckPermission(permService, "reaction", "view"), reactionController.GetReactionCount)
+		reactions.GET("/check", middlewares.CheckPermission(permService, "reaction", "view"), reactionController.CheckUserReaction)
+		reactions.GET("/status", middlewares.CheckPermission(permService, "reaction", "view"), reactionController.GetReactionStatus)
 	}
 }

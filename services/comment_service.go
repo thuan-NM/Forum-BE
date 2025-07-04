@@ -21,8 +21,9 @@ type CommentService interface {
 	DeleteComment(id uint) error
 	ListComments(filters map[string]interface{}) ([]models.Comment, int, error)
 	ListReplies(parentID uint, filters map[string]interface{}) ([]models.Comment, int, error)
-	GetAllComments(filters map[string]interface{}) ([]models.Comment, int, error) // Thêm method mới
+	GetAllComments(filters map[string]interface{}) ([]models.Comment, int, error)
 	UpdateCommentStatus(id uint, status string) (*models.Comment, error)
+	AddAttachment(commentID uint, attachment *models.Attachment) error
 }
 
 type commentService struct {
@@ -98,15 +99,23 @@ func (s *commentService) CreateComment(content string, userID uint, postID *uint
 	}
 	if parentID != nil {
 		s.invalidateCache(fmt.Sprintf("comments:comment:%d:*", *parentID))
-
-		// ✅ Thêm dòng này để cập nhật has_replies cho comment cha trong cache
 		s.updateReplyCacheAfterCreate(comment, *parentID)
 	}
 
 	return comment, nil
-
 }
 
+func (s *commentService) AddAttachment(commentID uint, attachment *models.Attachment) error {
+	attachment.EntityType = "comment"
+	attachment.EntityID = commentID
+	if err := s.commentRepo.UpdateCommentAttachment(attachment); err != nil {
+		return fmt.Errorf("failed to link attachment to comment: %v", err)
+	}
+	s.invalidateCache(fmt.Sprintf("comment:%d", commentID))
+	return nil
+}
+
+// Các hàm khác giữ nguyên
 func (s *commentService) GetCommentByID(id uint) (*models.Comment, error) {
 	cacheKey := fmt.Sprintf("comment:%d", id)
 	ctx := context.Background()
@@ -194,7 +203,7 @@ func (s *commentService) DeleteComment(id uint) error {
 
 	for _, childID := range childIDs {
 		s.invalidateCache(fmt.Sprintf("comment:%d", childID))
-		s.invalidateCache(fmt.Sprintf("replies:comment:%d:*", childID)) // Nếu comment con có replies
+		s.invalidateCache(fmt.Sprintf("replies:comment:%d:*", childID))
 	}
 
 	if comment.PostID != nil {
@@ -220,7 +229,6 @@ type CommentListResponse struct {
 }
 
 func (s *commentService) ListComments(filters map[string]interface{}) ([]models.Comment, int, error) {
-
 	var cacheKey string
 	if postID, ok := filters["post_id"].(uint); ok {
 		cacheKey = utils.GenerateCacheKey("comments:post", postID, filters)
@@ -267,7 +275,6 @@ func (s *commentService) ListComments(filters map[string]interface{}) ([]models.
 }
 
 func (s *commentService) ListReplies(parentID uint, filters map[string]interface{}) ([]models.Comment, int, error) {
-
 	cacheKey := utils.GenerateCacheKey("comments:comment", parentID, filters)
 	ctx := context.Background()
 
@@ -304,10 +311,9 @@ func (s *commentService) ListReplies(parentID uint, filters map[string]interface
 
 	return replies, int(total), nil
 }
+
 func (s *commentService) GetAllComments(filters map[string]interface{}) ([]models.Comment, int, error) {
-
 	cacheKey := utils.GenerateCacheKey("comments:all", 0, filters)
-
 	ctx := context.Background()
 
 	cached, err := s.redisClient.Get(ctx, cacheKey).Result()
@@ -355,7 +361,7 @@ func (s *commentService) UpdateCommentStatus(id uint, status string) (*models.Co
 	comment, err := s.commentRepo.GetCommentByID(id)
 	if err != nil {
 		log.Printf("Failed to get Updated comment %d: %v", id, err)
-
+		return nil, err
 	}
 	s.invalidateCache(fmt.Sprintf("comment:%d", id))
 	if comment.PostID != nil {
@@ -370,6 +376,7 @@ func (s *commentService) UpdateCommentStatus(id uint, status string) (*models.Co
 	s.invalidateCache("comments:all:*")
 	return comment, nil
 }
+
 func IsValidCommentStatus(status string) bool {
 	validStatuses := []string{"approved", "pending", "spam"}
 	for _, s := range validStatuses {
@@ -379,6 +386,7 @@ func IsValidCommentStatus(status string) bool {
 	}
 	return false
 }
+
 func (s *commentService) validateCommentsUserData(comments []models.Comment) bool {
 	for _, comment := range comments {
 		if comment.User.ID == 0 || comment.DeletedAt.Valid {
@@ -387,41 +395,6 @@ func (s *commentService) validateCommentsUserData(comments []models.Comment) boo
 		}
 	}
 	return true
-}
-
-func (s *commentService) updateCacheAfterCreate(comment *models.Comment, id uint, isQuestion bool) {
-	prefix := "answer"
-	if isQuestion {
-		prefix = "question"
-	}
-	cachePattern := fmt.Sprintf("comments:%s:%d:*", prefix, id)
-	ctx := context.Background()
-
-	keys, err := s.redisClient.Keys(ctx, cachePattern).Result()
-	if err != nil {
-		log.Printf("Failed to get cache keys for pattern %s: %v", cachePattern, err)
-		return
-	}
-
-	pipe := s.redisClient.Pipeline()
-	for _, key := range keys {
-		cached, err := s.redisClient.Get(ctx, key).Result()
-		if err == nil {
-			var response CommentListResponse
-			if err := json.Unmarshal([]byte(cached), &response); err == nil {
-				response.Comments = append([]models.Comment{*comment}, response.Comments...)
-				response.Total++
-				data, err := json.Marshal(response)
-				if err == nil {
-					pipe.Set(ctx, key, data, 2*time.Minute)
-				}
-			}
-		}
-	}
-
-	if _, err := pipe.Exec(ctx); err != nil {
-		log.Printf("Failed to update cache for pattern %s: %v", cachePattern, err)
-	}
 }
 
 func (s *commentService) updateReplyCacheAfterCreate(comment *models.Comment, parentID uint) {
@@ -450,7 +423,6 @@ func (s *commentService) updateReplyCacheAfterCreate(comment *models.Comment, pa
 		}
 	}
 
-	// Update parent comment's has_replies
 	parentCachePattern := fmt.Sprintf("comments:*:*")
 	parentKeys, err := s.redisClient.Keys(ctx, parentCachePattern).Result()
 	if err != nil {

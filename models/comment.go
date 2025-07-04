@@ -28,6 +28,7 @@ type Comment struct {
 	Attachments []Attachment `json:"attachments,omitempty" gorm:"polymorphic:Entity;"`
 	Parent      *Comment     `json:"parent,omitempty" gorm:"foreignKey:ParentID"`
 	Children    []Comment    `json:"children,omitempty" gorm:"foreignKey:ParentID"`
+	Reactions   []Reaction   `json:"reactions,omitempty" gorm:"foreignKey:CommentID"`
 }
 
 func (c *Comment) BeforeCreate(tx *gorm.DB) (err error) {
