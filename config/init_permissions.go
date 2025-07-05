@@ -1,4 +1,3 @@
-// config/permissions.go
 package config
 
 import (
@@ -11,7 +10,6 @@ import (
 )
 
 func InitPermissions() {
-	// Load configuration
 	cfg := LoadConfig()
 	// Connect to database
 	db, err := infrastructure.ConnectMySQL(cfg.DBDSN)
@@ -37,6 +35,7 @@ func InitPermissions() {
 		&models.Attachment{},
 		&models.Message{},
 		&models.Topic{},
+		&models.Reaction{},
 	)
 	if err != nil {
 		log.Fatal("Failed to migrate database:", err)
@@ -134,11 +133,11 @@ func InitPermissions() {
 			"edit":   {models.RoleRoot},
 			"delete": {models.RoleRoot},
 		},
-		"attachment": {
+		"file": {
 			"create": {models.RoleRoot, models.RoleAdmin, models.RoleEmployee, models.RoleUser},
 			"view":   {models.RoleRoot, models.RoleAdmin, models.RoleEmployee, models.RoleUser},
-			"edit":   {models.RoleRoot},
-			"delete": {models.RoleRoot},
+			"edit":   {models.RoleRoot, models.RoleAdmin, models.RoleEmployee},
+			"delete": {models.RoleRoot, models.RoleAdmin, models.RoleEmployee},
 		},
 		"message": {
 			"create": {models.RoleRoot, models.RoleAdmin, models.RoleEmployee, models.RoleUser},
@@ -151,6 +150,12 @@ func InitPermissions() {
 			"view":   {models.RoleRoot, models.RoleAdmin, models.RoleEmployee, models.RoleUser},
 			"edit":   {models.RoleRoot, models.RoleAdmin},
 			"delete": {models.RoleRoot},
+		},
+		"reaction": {
+			"create": {models.RoleRoot, models.RoleAdmin, models.RoleEmployee, models.RoleUser},
+			"view":   {models.RoleRoot, models.RoleAdmin, models.RoleEmployee, models.RoleUser},
+			"edit":   {models.RoleRoot, models.RoleAdmin, models.RoleEmployee, models.RoleUser},
+			"delete": {models.RoleRoot, models.RoleAdmin, models.RoleEmployee, models.RoleUser},
 		},
 		"pass": {
 			"create": {models.RoleRoot, models.RoleAdmin, models.RoleEmployee},
@@ -173,7 +178,6 @@ func InitPermissions() {
 
 	// Create permissions for all role-resource-action combinations
 	for _, resource := range resources {
-		// Get resource-specific actions from allowedPermissions
 		var resourceActions []string
 		if actions, exists := allowedPermissions[resource]; exists {
 			resourceActions = make([]string, 0, len(actions))
@@ -181,13 +185,11 @@ func InitPermissions() {
 				resourceActions = append(resourceActions, action)
 			}
 		} else {
-			// Default actions if resource not in allowedPermissions (should not happen with current setup)
 			resourceActions = []string{"create", "view", "delete"}
 		}
 
 		for _, action := range resourceActions {
 			for _, role := range roles {
-				// Check if the role is allowed for this resource-action
 				allowed := false
 				if roles, exists := allowedPermissions[resource][action]; exists {
 					for _, r := range roles {
@@ -198,14 +200,12 @@ func InitPermissions() {
 					}
 				}
 
-				// Skip if permission already exists
 				existingPerm, err := permissionService.GetPermission(string(role), resource, action)
 				if err == nil && existingPerm != nil {
 					log.Printf("Permission already exists: %s:%s:%s", role, resource, action)
 					continue
 				}
 
-				// Create permission
 				perm := models.Permission{
 					Role:      role,
 					Resource:  resource,

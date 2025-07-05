@@ -24,7 +24,7 @@ type Answer struct {
 	User        User         `json:"user,omitempty" gorm:"foreignKey:UserID"`
 	Question    Question     `json:"question,omitempty" gorm:"foreignKey:QuestionID"`
 	Comments    []Comment    `json:"comments,omitempty" gorm:"foreignKey:AnswerID"`
-	Reactions   []Reaction   `json:"reactions,omitempty" gorm:"polymorphic:Reactable;"`
+	Reactions   []Reaction   `json:"reactions,omitempty" gorm:"foreignKey:AnswerID"`
 	Attachments []Attachment `json:"attachments,omitempty" gorm:"polymorphic:Entity;"`
 	Tags        []Tag        `json:"tags,omitempty" gorm:"many2many:answer_tags;"`
 }

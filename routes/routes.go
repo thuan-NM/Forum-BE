@@ -1,7 +1,11 @@
 package routes
 
 import (
-	//"Forum_BE/config"
+	"Forum_BE/config"
+	"github.com/cloudinary/cloudinary-go/v2"
+	"os"
+
+	// "Forum_BE/config"
 	"Forum_BE/middlewares"
 	"Forum_BE/models"
 	"Forum_BE/repositories"
@@ -18,8 +22,17 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, jwtSecret string, redisClient *redi
 	permService := services.NewPermissionService(permissionRepo, userRepo)
 
 	var permissions []models.Permission
-	//config.InitPermissions()
-
+	config.InitPermissions()
+	// Khởi tạo Cloudinary
+	cld, err := cloudinary.NewFromParams(
+		os.Getenv("CLOUDINARY_CLOUD_NAME"),
+		os.Getenv("CLOUDINARY_API_KEY"),
+		os.Getenv("CLOUDINARY_API_SECRET"),
+	)
+	if err != nil {
+		log.Fatalf("Failed to initialize Cloudinary: %v", err)
+	}
+	uploadPreset := os.Getenv("CLOUDINARY_UPLOAD_PRESET")
 	for _, perm := range permissions {
 		existingPerm, err := permService.GetPermission(string(perm.Role), perm.Resource, perm.Action)
 		if err == nil && existingPerm != nil {
@@ -44,7 +57,7 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, jwtSecret string, redisClient *redi
 		QuestionRoutes(db, authorized, permService, redisClient)
 		PostRoutes(db, authorized, permService, redisClient)
 		AnswerRoutes(db, authorized, permService, redisClient)
-		CommentRoutes(db, authorized, permService, redisClient)
+		CommentRoutes(db, authorized, permService, redisClient, cld, uploadPreset)
 		TagRoutes(db, authorized, permService, redisClient)
 		TopicRoutes(db, authorized, permService, redisClient)
 		FollowRoutes(db, authorized, permService, redisClient)
@@ -52,6 +65,8 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, jwtSecret string, redisClient *redi
 		VoteRoutes(db, authorized, permService)
 		ReportRoutes(db, authorized, permService, redisClient)
 		PermissionRoutes(authorized, permService)
+		FileRoutes(db, authorized, permService, redisClient, cld, uploadPreset)
+
 		PassRoutes(db, authorized, permService, redisClient)
 		ReactionRoutes(db, authorized, permService, redisClient)
 	}

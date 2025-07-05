@@ -105,6 +105,48 @@ func (fc *FollowController) GetQuestionFollowStatus(c *gin.Context) {
 	})
 }
 
+func (fc *FollowController) GetTopicFollowStatus(c *gin.Context) {
+	userID := c.GetUint("user_id")
+	idParam := c.Param("id")
+	id, err := strconv.ParseUint(idParam, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid topic id"})
+		return
+	}
+
+	isFollowing, err := fc.followService.GetTopicFollowStatus(userID, uint(id))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"isFollowing": isFollowing,
+		"message":     "Follow status retrieved successfully",
+	})
+}
+
+func (fc *FollowController) GetUserFollowStatus(c *gin.Context) {
+	userID := c.GetUint("user_id")
+	idParam := c.Param("id")
+	id, err := strconv.ParseUint(idParam, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
+		return
+	}
+
+	isFollowing, err := fc.followService.GetUserFollowStatus(userID, uint(id))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"isFollowing": isFollowing,
+		"message":     "Follow status retrieved successfully",
+	})
+}
+
 func (fc *FollowController) FollowUser(c *gin.Context) {
 	userID := c.GetUint("user_id")
 	idParam := c.Param("id")

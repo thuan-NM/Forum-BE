@@ -21,7 +21,7 @@ func (qc *QuestionController) CreateQuestion(c *gin.Context) {
 	var req struct {
 		Title       string `json:"title" binding:"required"`
 		Description string `json:"description"`
-		TopicID     uint   `json:"topicId"`
+		TopicID     uint   `json:"topicId" binding:"required"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {

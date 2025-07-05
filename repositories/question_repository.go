@@ -39,7 +39,6 @@ func (r *questionRepository) GetQuestionByID(id uint) (*models.Question, error) 
 		Preload("Answers").
 		Preload("Follows").
 		Preload("Topic").
-		Preload("Reactions").
 		First(&question, id).Error
 	if err != nil {
 		return nil, err
@@ -99,7 +98,7 @@ func (r *questionRepository) ListQuestions(filters map[string]interface{}) ([]mo
 	}
 
 	// Apply filters and pagination
-	query := r.db.Model(&models.Question{}).Preload("User").Preload("Topic").Preload("Answers").Preload("Follows").Preload("Reactions")
+	query := r.db.Model(&models.Question{}).Preload("User").Preload("Topic").Preload("Answers").Preload("Follows")
 	if search, ok := filters["title_search"]; ok {
 		query = query.Where("title LIKE ?", "%"+search.(string)+"%")
 	}
@@ -168,7 +167,7 @@ func (r *questionRepository) ListQuestionsExcludingPassed(filters map[string]int
 	}
 
 	// Apply filters and pagination
-	query := r.db.Model(&models.Question{}).Preload("User").Preload("Topic").Preload("Answers").Preload("Follows").Preload("Reactions")
+	query := r.db.Model(&models.Question{}).Preload("User").Preload("Topic").Preload("Answers").Preload("Follows")
 	query = query.Where("questions.id NOT IN (?)",
 		r.db.Table("passed_questions").Select("question_id").Where("user_id = ?", userID))
 	if search, ok := filters["title_search"]; ok {

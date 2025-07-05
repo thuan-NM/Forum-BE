@@ -9,6 +9,7 @@ type UserFollowRepository interface {
 	CreateFollow(follow *models.UserFollow) error
 	DeleteFollow(userID, followedUserID uint) error
 	GetFollowsByUser(followedUserID uint) ([]models.UserFollow, error)
+	ExistsByUserAndFollower(followedUserID, userID uint) (bool, error) // Thêm method
 }
 
 type userFollowRepository struct {
@@ -31,4 +32,10 @@ func (r *userFollowRepository) GetFollowsByUser(followedUserID uint) ([]models.U
 	var follows []models.UserFollow
 	err := r.db.Where("followed_user_id = ?", followedUserID).Find(&follows).Error
 	return follows, err
+}
+
+func (r *userFollowRepository) ExistsByUserAndFollower(followedUserID, userID uint) (bool, error) {
+	var count int64
+	err := r.db.Model(&models.UserFollow{}).Where("followed_user_id = ? AND user_id = ?", followedUserID, userID).Count(&count).Error
+	return count > 0, err
 }

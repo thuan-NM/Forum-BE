@@ -31,6 +31,6 @@ type Post struct {
 	Attachments   []Attachment   `json:"attachments,omitempty" gorm:"polymorphic:Entity;"`
 	Notifications []Notification `json:"notifications,omitempty" gorm:"polymorphic:Entity;"`
 	Comments      []Comment      `json:"comments,omitempty" gorm:"foreignKey:PostID"`
-	Reactions     []Reaction     `json:"reactions,omitempty" gorm:"polymorphic:Reactable;"`
+	Reactions     []Reaction     `json:"reactions,omitempty" gorm:"foreignKey:PostID"`
 	Tags          []Tag          `json:"tags,omitempty" gorm:"many2many:post_tags;"`
 }
