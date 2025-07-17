@@ -9,8 +9,6 @@ import (
 type Attachment struct {
 	ID           uint            `gorm:"primaryKey" json:"id"`
 	UserID       uint            `gorm:"index" json:"user_id"`
-	EntityType   string          `gorm:"type:varchar(50);index" json:"entity_type"` // post, answer, comment
-	EntityID     uint            `gorm:"index" json:"entity_id"`
 	URL          string          `gorm:"type:text" json:"url"`
 	ThumbnailURL string          `gorm:"type:text" json:"thumbnail_url,omitempty"`
 	FileName     string          `gorm:"type:varchar(255)" json:"file_name"`
@@ -22,8 +20,5 @@ type Attachment struct {
 	DeletedAt    gorm.DeletedAt  `gorm:"index" json:"-"`
 
 	// Relationships
-	User    User     `gorm:"foreignKey:UserID" json:"user,omitempty"`
-	Post    *Post    `gorm:"foreignKey:EntityID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;" json:"post,omitempty"`
-	Comment *Comment `gorm:"foreignKey:EntityID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;" json:"comment,omitempty"`
-	Answer  *Answer  `gorm:"foreignKey:EntityID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;" json:"answer,omitempty"`
+	User User `gorm:"foreignKey:UserID" json:"user,omitempty"`
 }

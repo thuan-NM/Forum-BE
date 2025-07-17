@@ -30,6 +30,9 @@ func (r *reportRepository) CreateReport(report *models.Report) error {
 	if err := r.db.Create(report).Error; err != nil {
 		return err
 	}
+	if err := r.db.Preload("Reporter").First(report, "id = ?", report.ID).Error; err != nil {
+		return nil
+	}
 	return nil
 }
 

@@ -21,14 +21,12 @@ type Comment struct {
 	DeletedAt gorm.DeletedAt  `gorm:"index" json:"-"`
 
 	// Relationships
-	User        User         `json:"user,omitempty" gorm:"foreignKey:UserID"`
-	Post        *Post        `json:"post,omitempty" gorm:"foreignKey:PostID;references:ID"`
-	Answer      *Answer      `json:"answer,omitempty" gorm:"foreignKey:AnswerID;references:ID"`
-	Votes       []Vote       `json:"votes,omitempty" gorm:"polymorphic:Votable;"`
-	Attachments []Attachment `json:"attachments,omitempty" gorm:"polymorphic:Entity;"`
-	Parent      *Comment     `json:"parent,omitempty" gorm:"foreignKey:ParentID"`
-	Children    []Comment    `json:"children,omitempty" gorm:"foreignKey:ParentID"`
-	Reactions   []Reaction   `json:"reactions,omitempty" gorm:"foreignKey:CommentID"`
+	User     User      `json:"user,omitempty" gorm:"foreignKey:UserID"`
+	Post     *Post     `json:"post,omitempty" gorm:"foreignKey:PostID;references:ID"`
+	Answer   *Answer   `json:"answer,omitempty" gorm:"foreignKey:AnswerID;references:ID"`
+	Votes    []Vote    `json:"votes,omitempty" gorm:"polymorphic:Votable;"`
+	Parent   *Comment  `json:"parent,omitempty" gorm:"foreignKey:ParentID"`
+	Children []Comment `json:"children,omitempty" gorm:"foreignKey:ParentID"`
 }
 
 func (c *Comment) BeforeCreate(tx *gorm.DB) (err error) {

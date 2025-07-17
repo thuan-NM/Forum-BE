@@ -14,7 +14,7 @@ import (
 )
 
 type AnswerService interface {
-	CreateAnswer(content string, userID uint, questionID uint, tagId []uint) (*models.Answer, error)
+	CreateAnswer(content string, userID uint, questionID uint, tagId []uint, title string) (*models.Answer, error)
 	GetAnswerByID(id uint) (*models.Answer, error)
 	UpdateAnswer(id uint, content string) (*models.Answer, error)
 	DeleteAnswer(id uint) error
@@ -64,7 +64,7 @@ func (s *answerService) GetAllAnswers(filters map[string]interface{}) ([]models.
 
 	return answers, total, nil
 }
-func (s *answerService) CreateAnswer(content string, userID uint, questionID uint, tagId []uint) (*models.Answer, error) {
+func (s *answerService) CreateAnswer(content string, userID uint, questionID uint, tagId []uint, title string) (*models.Answer, error) {
 	if content == "" {
 		return nil, errors.New("Content is required")
 	}
@@ -84,6 +84,7 @@ func (s *answerService) CreateAnswer(content string, userID uint, questionID uin
 		Content:    content,
 		UserID:     userID,
 		QuestionID: questionID,
+		Title:      title,
 	}
 
 	if err := s.answerRepo.CreateAnswer(answer, tagId); err != nil {
@@ -91,10 +92,11 @@ func (s *answerService) CreateAnswer(content string, userID uint, questionID uin
 		return nil, err
 	}
 
+	s.invalidateCache(fmt.Sprintf("question:%d", questionID)) // Thêm dòng này
 	s.invalidateCache(fmt.Sprintf("answers:question:%d:*", questionID))
-
 	s.invalidateCache("questions:*")
-	s.invalidateCache("tags:*") // Thêm invalidation cho tag cache
+	s.invalidateCache("tags:*")
+
 	log.Printf("Cache invalidated for questions:* and tags:* due to new answer for question %d", questionID)
 
 	log.Printf("Answer %d created successfully for question %d", answer.ID, questionID)
@@ -178,7 +180,9 @@ func (s *answerService) DeleteAnswer(id uint) error {
 	s.invalidateCache(fmt.Sprintf("answers:question:%d:*", answer.QuestionID))
 	s.invalidateCache("answers:all:*")
 	s.invalidateCache("questions:*")
-	s.invalidateCache("tags:*") // Thêm invalidation cho tag cache
+	s.invalidateCache("tags:*")
+	s.invalidateCache(fmt.Sprintf("question:%d", answer.QuestionID)) // Thêm dòng này
+
 	log.Printf("Cache invalidated for questions:* and tags:* due to deleted answer for question %d", answer.QuestionID)
 
 	return nil
@@ -330,6 +334,7 @@ func (s *answerService) AcceptAnswer(id uint, userID uint) (*models.Answer, erro
 		log.Printf("Failed to accept answer %d: %v", id, err)
 		return nil, err
 	}
+	s.invalidateCache(fmt.Sprintf("question:%d", answer.QuestionID)) // Thêm dòng này
 
 	s.invalidateCache(fmt.Sprintf("answer:%d", id))
 	s.invalidateCache(fmt.Sprintf("answers:question:%d:*", answer.QuestionID))

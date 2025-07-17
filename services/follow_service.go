@@ -2,6 +2,7 @@ package services
 
 import (
 	"Forum_BE/models"
+	"Forum_BE/notification"
 	"Forum_BE/repositories"
 	"context"
 	"encoding/json"
@@ -24,25 +25,29 @@ type FollowService interface {
 	GetUserFollows(userID uint) ([]models.UserFollow, error)
 	GetFollowedTopics(userID uint) ([]models.Topic, error)
 	GetQuestionFollowStatus(userID uint, questionID uint) (bool, error)
-	GetTopicFollowStatus(userID uint, topicID uint) (bool, error)       // Thêm hàm mới
-	GetUserFollowStatus(userID uint, followedUserID uint) (bool, error) // Thêm hàm mới
+	GetTopicFollowStatus(userID uint, topicID uint) (bool, error)
+	GetUserFollowStatus(userID uint, followedUserID uint) (bool, error)
 }
 
 type followService struct {
 	topicFollowRepo    repositories.TopicFollowRepository
 	questionFollowRepo repositories.QuestionFollowRepository
 	userFollowRepo     repositories.UserFollowRepository
+	userRepo           repositories.UserRepository // Thêm UserRepository
 	redisClient        *redis.Client
 	db                 *gorm.DB
+	novuClient         *notification.NovuClient
 }
 
-func NewFollowService(tRepo repositories.TopicFollowRepository, qRepo repositories.QuestionFollowRepository, uRepo repositories.UserFollowRepository, redisClient *redis.Client, db *gorm.DB) FollowService {
+func NewFollowService(tRepo repositories.TopicFollowRepository, qRepo repositories.QuestionFollowRepository, uRepo repositories.UserFollowRepository, userRepo repositories.UserRepository, redisClient *redis.Client, db *gorm.DB, novuClient *notification.NovuClient) FollowService {
 	return &followService{
 		topicFollowRepo:    tRepo,
 		questionFollowRepo: qRepo,
 		userFollowRepo:     uRepo,
+		userRepo:           userRepo, // Khởi tạo UserRepository
 		redisClient:        redisClient,
 		db:                 db,
+		novuClient:         novuClient,
 	}
 }
 
@@ -75,6 +80,8 @@ func (s *followService) FollowTopic(userID, topicID uint) error {
 	s.db.Model(&topic).Update("followers_count", gorm.Expr("followers_count + 1"))
 	s.invalidateCache(fmt.Sprintf("topic:%d", topicID))
 	s.invalidateCache("topics:*")
+	s.invalidateCache(fmt.Sprintf("followed_topics:user:%d", userID))
+	s.invalidateCache(fmt.Sprintf("follows:topic:%d:user:%d", topicID, userID))
 
 	return nil
 }
@@ -95,6 +102,8 @@ func (s *followService) UnfollowTopic(userID, topicID uint) error {
 	}
 	s.invalidateCache(fmt.Sprintf("topic:%d", topicID))
 	s.invalidateCache("topics:*")
+	s.invalidateCache(fmt.Sprintf("followed_topics:user:%d", userID))
+	s.invalidateCache(fmt.Sprintf("follows:topic:%d:user:%d", topicID, userID))
 
 	return nil
 }
@@ -123,6 +132,20 @@ func (s *followService) FollowQuestion(userID, questionID uint) error {
 	err = s.questionFollowRepo.CreateFollow(follow)
 	if err != nil {
 		return err
+	}
+
+	// Send notification to the question owner with follower's full name
+	if question.UserID != userID {
+		follower, err := s.userRepo.GetUserByID(userID)
+		if err != nil {
+			log.Printf("Failed to get follower info: %v", err)
+		} else {
+			workflowID := "new-question-follow-notification"
+			message := fmt.Sprintf("%s has followed your question: %s", follower.FullName, question.Title)
+			if err := s.novuClient.SendNotification(question.UserID, workflowID, message); err != nil {
+				log.Printf("Failed to send notification for question follow: %v", err)
+			}
+		}
 	}
 
 	cacheKey := fmt.Sprintf("follows:question:%d:user:%d", questionID, userID)
@@ -318,6 +341,18 @@ func (s *followService) FollowUser(userID, followedUserID uint) error {
 	s.invalidateCache(fmt.Sprintf("user:%d", userID))
 	s.invalidateCache(fmt.Sprintf("user:%d", followedUserID))
 	s.invalidateCache("users:*")
+
+	// Send notification to the followed user with follower's full name
+	follower, err := s.userRepo.GetUserByID(userID)
+	if err != nil {
+		log.Printf("Failed to get follower info: %v", err)
+	} else {
+		workflowID := "new-user-follow-notification"
+		message := fmt.Sprintf("%s has followed you", follower.FullName)
+		if err := s.novuClient.SendNotification(followedUserID, workflowID, message); err != nil {
+			log.Printf("Failed to send notification for user follow: %v", err)
+		}
+	}
 
 	return nil
 }

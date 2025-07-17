@@ -18,9 +18,10 @@ func NewAnswerController(a services.AnswerService) *AnswerController {
 
 func (ac *AnswerController) CreateAnswer(c *gin.Context) {
 	var req struct {
+		Title      string `json:"title" binding:"required"`
 		Content    string `json:"content" binding:"required"`
 		QuestionID uint   `json:"questionId" binding:"required"`
-		Tags       []uint `json:"tags"`
+		Tags       []uint `json:"tags" binding:"required"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -30,7 +31,7 @@ func (ac *AnswerController) CreateAnswer(c *gin.Context) {
 
 	userID := c.GetUint("user_id") // Middleware đã thêm user_id vào context
 
-	answer, err := ac.answerService.CreateAnswer(req.Content, userID, req.QuestionID, req.Tags)
+	answer, err := ac.answerService.CreateAnswer(req.Content, userID, req.QuestionID, req.Tags, req.Title)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

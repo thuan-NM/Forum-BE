@@ -8,6 +8,7 @@ import (
 type AnswerResponse struct {
 	ID             uint              `json:"id"`
 	Content        string            `json:"content"`
+	Title          string            `json:"title"`
 	QuestionID     uint              `json:"questionId"`
 	CreatedAt      string            `json:"createdAt"`
 	UpdatedAt      string            `json:"updatedAt"`
@@ -33,6 +34,7 @@ func ToAnswerResponse(answer *models.Answer) AnswerResponse {
 	}
 	return AnswerResponse{
 		ID:             answer.ID,
+		Title:          answer.Title,
 		Content:        answer.Content,
 		QuestionID:     answer.QuestionID,
 		CreatedAt:      answer.CreatedAt.Format(time.RFC3339),

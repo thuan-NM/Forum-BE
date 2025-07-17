@@ -28,7 +28,6 @@ type Post struct {
 	DeletedAt    gorm.DeletedAt  `gorm:"index" json:"-"`
 
 	User          User           `gorm:"foreignKey:UserID" json:"user,omitempty"`
-	Attachments   []Attachment   `json:"attachments,omitempty" gorm:"polymorphic:Entity;"`
 	Notifications []Notification `json:"notifications,omitempty" gorm:"polymorphic:Entity;"`
 	Comments      []Comment      `json:"comments,omitempty" gorm:"foreignKey:PostID"`
 	Reactions     []Reaction     `json:"reactions,omitempty" gorm:"foreignKey:PostID"`

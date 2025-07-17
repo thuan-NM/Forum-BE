@@ -2,7 +2,6 @@ package responses
 
 import (
 	"Forum_BE/models"
-	"Forum_BE/utils"
 	"time"
 )
 
@@ -28,23 +27,11 @@ func ToFileResponse(file *models.Attachment) FileResponse {
 		ID    string `json:"id"`
 		Title string `json:"title"`
 	}
-	if file.EntityType != "" && file.EntityID != 0 {
-		relatedTo = &struct {
-			Type  string `json:"type"`
-			ID    string `json:"id"`
-			Title string `json:"title"`
-		}{
-			Type: file.EntityType,
-			ID:   string(file.EntityID),
-		}
-		if file.Post != nil {
-			relatedTo.Title = utils.StripHTML(file.Post.Title)
-		} else if file.Answer != nil {
-			relatedTo.Title = utils.StripHTML(file.Answer.Content)
-		} else if file.Comment != nil {
-			relatedTo.Title = utils.StripHTML(file.Comment.Content)
-		}
-	}
+
+	// Since EntityType and EntityID are removed, we can optionally check for related comments
+	// This requires a database query to find comments that reference this file in AttachmentIDs
+	// For simplicity, we can leave relatedTo as nil or implement a query in the service layer if needed
+	// Here, we'll set relatedTo to nil unless you want to add a query to find associated comments
 
 	return FileResponse{
 		ID:           file.ID,
@@ -54,7 +41,7 @@ func ToFileResponse(file *models.Attachment) FileResponse {
 		URL:          file.URL,
 		ThumbnailURL: file.ThumbnailURL,
 		UploadedBy:   file.User.Username,
-		RelatedTo:    relatedTo,
+		RelatedTo:    relatedTo, // Set to nil as attachments are not directly tied to entities
 		CreatedAt:    file.CreatedAt.Format(time.RFC3339),
 	}
 }
