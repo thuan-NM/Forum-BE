@@ -10,7 +10,7 @@ type TopicResponse struct {
 	Name           string `json:"name"`
 	Description    string `json:"description"`
 	QuestionCount  int    `json:"questionsCount"`
-	FollowersCount int    `json:"followers_count"`
+	FollowersCount int    `json:"followersCount"`
 	CreatedAt      string `json:"createdAt"`
 	UpdatedAt      string `json:"updatedAt"`
 }

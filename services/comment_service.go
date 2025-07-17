@@ -2,6 +2,7 @@ package services
 
 import (
 	"Forum_BE/models"
+	"Forum_BE/notification"
 	"Forum_BE/repositories"
 	"Forum_BE/utils"
 	"context"
@@ -23,56 +24,59 @@ type CommentService interface {
 	ListReplies(parentID uint, filters map[string]interface{}) ([]models.Comment, int, error)
 	GetAllComments(filters map[string]interface{}) ([]models.Comment, int, error)
 	UpdateCommentStatus(id uint, status string) (*models.Comment, error)
-	AddAttachment(commentID uint, attachment *models.Attachment) error
 }
 
 type commentService struct {
 	commentRepo repositories.CommentRepository
 	postRepo    repositories.PostRepository
 	answerRepo  repositories.AnswerRepository
+	userRepo    repositories.UserRepository // Thêm UserRepository
 	redisClient *redis.Client
 	db          *gorm.DB
+	novuClient  *notification.NovuClient // Thêm NovuClient
 }
 
-func NewCommentService(cRepo repositories.CommentRepository, pRepo repositories.PostRepository, aRepo repositories.AnswerRepository, redisClient *redis.Client, db *gorm.DB) CommentService {
+func NewCommentService(cRepo repositories.CommentRepository, pRepo repositories.PostRepository, aRepo repositories.AnswerRepository, userRepo repositories.UserRepository, redisClient *redis.Client, db *gorm.DB, novuClient *notification.NovuClient) CommentService {
 	return &commentService{
 		commentRepo: cRepo,
 		postRepo:    pRepo,
 		answerRepo:  aRepo,
+		userRepo:    userRepo, // Khởi tạo UserRepository
 		redisClient: redisClient,
 		db:          db,
+		novuClient:  novuClient, // Khởi tạo NovuClient
 	}
 }
 
 func (s *commentService) CreateComment(content string, userID uint, postID *uint, answerID *uint, parentID *uint) (*models.Comment, error) {
 	if content == "" {
-		return nil, fmt.Errorf("content is required")
+		return nil, fmt.Errorf("Nội dung là bắt buộc")
 	}
 
 	if postID != nil {
 		post, err := s.postRepo.GetPostByID(*postID)
 		if err != nil {
-			return nil, fmt.Errorf("post not found: %v", err)
+			return nil, fmt.Errorf("Không tìm thấy bài viết: %v", err)
 		}
 		if post.Status != "approved" {
-			return nil, fmt.Errorf("cannot comment on an unapproved post")
+			return nil, fmt.Errorf("Không thể bình luận trên bài viết chưa được duyệt")
 		}
 	}
 
 	if answerID != nil {
 		_, err := s.answerRepo.GetAnswerByID(*answerID)
 		if err != nil {
-			return nil, fmt.Errorf("answer not found: %v", err)
+			return nil, fmt.Errorf("Không tìm thấy câu trả lời: %v", err)
 		}
 	}
 
 	if parentID != nil {
 		parent, err := s.commentRepo.GetCommentByID(*parentID)
 		if err != nil {
-			return nil, fmt.Errorf("parent comment not found: %v", err)
+			return nil, fmt.Errorf("Không tìm thấy bình luận cha: %v", err)
 		}
 		if parent.Status != "approved" {
-			return nil, fmt.Errorf("cannot reply to an unapproved comment")
+			return nil, fmt.Errorf("Không thể trả lời bình luận chưa được duyệt")
 		}
 	}
 
@@ -87,7 +91,7 @@ func (s *commentService) CreateComment(content string, userID uint, postID *uint
 	}
 
 	if err := s.commentRepo.CreateComment(comment); err != nil {
-		return nil, fmt.Errorf("failed to create comment: %v", err)
+		return nil, fmt.Errorf("Tạo bình luận thất bại: %v", err)
 	}
 
 	// Invalidate cache
@@ -102,20 +106,46 @@ func (s *commentService) CreateComment(content string, userID uint, postID *uint
 		s.updateReplyCacheAfterCreate(comment, *parentID)
 	}
 
+	// Send notification
+	commenter, err := s.userRepo.GetUserByID(userID)
+	if err != nil {
+		log.Printf("Không lấy được thông tin người bình luận: %v", err)
+	} else {
+		if postID != nil {
+			post, err := s.postRepo.GetPostByID(*postID)
+			if err == nil && post.UserID != userID {
+				workflowID := "new-post-comment-notification"
+				message := fmt.Sprintf("%s đã bình luận trên bài viết của bạn: %s", commenter.FullName, post.Title)
+				if err := s.novuClient.SendNotification(post.UserID, workflowID, message); err != nil {
+					log.Printf("Gửi thông báo bình luận bài viết thất bại: %v", err)
+				}
+			}
+		} else if parentID != nil {
+			parent, err := s.commentRepo.GetCommentByID(*parentID)
+			if err == nil && parent.UserID != userID {
+				workflowID := "new-comment-reply-notification"
+
+				message := fmt.Sprintf("%s đã trả lời bình luận của bạn: %s", commenter.FullName, utils.StripHTML(parent.Content))
+				log.Printf("Gửi thông báo trả lời bình luận thất bại: %v", message)
+				if err := s.novuClient.SendNotification(parent.UserID, workflowID, message); err != nil {
+					log.Printf("Gửi thông báo trả lời bình luận thất bại: %v", err)
+				}
+			}
+		} else if answerID != nil {
+			answer, err := s.answerRepo.GetAnswerByID(*answerID)
+			if err == nil && answer.UserID != userID {
+				workflowID := "new-answer-comment-notification"
+				message := fmt.Sprintf("%s đã bình luận trên câu trả lời của bạn: %s", commenter.FullName, answer.Title)
+				if err := s.novuClient.SendNotification(answer.UserID, workflowID, message); err != nil {
+					log.Printf("Gửi thông báo trả lời bình luận thất bại: %v", err)
+				}
+			}
+		}
+	}
+
 	return comment, nil
 }
 
-func (s *commentService) AddAttachment(commentID uint, attachment *models.Attachment) error {
-	attachment.EntityType = "comment"
-	attachment.EntityID = commentID
-	if err := s.commentRepo.UpdateCommentAttachment(attachment); err != nil {
-		return fmt.Errorf("failed to link attachment to comment: %v", err)
-	}
-	s.invalidateCache(fmt.Sprintf("comment:%d", commentID))
-	return nil
-}
-
-// Các hàm khác giữ nguyên
 func (s *commentService) GetCommentByID(id uint) (*models.Comment, error) {
 	cacheKey := fmt.Sprintf("comment:%d", id)
 	ctx := context.Background()
@@ -124,26 +154,26 @@ func (s *commentService) GetCommentByID(id uint) (*models.Comment, error) {
 	if err == nil {
 		var comment models.Comment
 		if err := json.Unmarshal([]byte(cached), &comment); err == nil {
-			log.Printf("Cache hit for comment:%d", id)
+			log.Printf("Cache hit cho comment:%d", id)
 			return &comment, nil
 		}
 	}
 	if err != redis.Nil {
-		log.Printf("Redis error for comment:%d: %v", id, err)
+		log.Printf("Lỗi Redis cho comment:%d: %v", id, err)
 	}
 
 	comment, err := s.commentRepo.GetCommentByID(id)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get comment: %v", err)
+		return nil, fmt.Errorf("Lấy bình luận thất bại: %v", err)
 	}
 	if comment.DeletedAt.Valid {
-		return nil, fmt.Errorf("comment not found")
+		return nil, fmt.Errorf("Không tìm thấy bình luận")
 	}
 
 	data, err := json.Marshal(comment)
 	if err == nil {
 		if err := s.redisClient.Set(ctx, cacheKey, data, 2*time.Minute).Err(); err != nil {
-			log.Printf("Failed to set cache for comment:%d: %v", id, err)
+			log.Printf("Lưu cache cho comment:%d thất bại: %v", id, err)
 		}
 	}
 
@@ -153,10 +183,10 @@ func (s *commentService) GetCommentByID(id uint) (*models.Comment, error) {
 func (s *commentService) UpdateComment(id uint, content string) (*models.Comment, error) {
 	comment, err := s.commentRepo.GetCommentByID(id)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get comment: %v", err)
+		return nil, fmt.Errorf("Lấy bình luận thất bại: %v", err)
 	}
 	if comment.DeletedAt.Valid {
-		return nil, fmt.Errorf("comment not found")
+		return nil, fmt.Errorf("Không tìm thấy bình luận")
 	}
 
 	if content != "" {
@@ -164,7 +194,7 @@ func (s *commentService) UpdateComment(id uint, content string) (*models.Comment
 	}
 
 	if err := s.commentRepo.UpdateComment(comment); err != nil {
-		return nil, fmt.Errorf("failed to update comment: %v", err)
+		return nil, fmt.Errorf("Cập nhật bình luận thất bại: %v", err)
 	}
 
 	s.invalidateCache(fmt.Sprintf("comment:%d", id))
@@ -184,19 +214,19 @@ func (s *commentService) UpdateComment(id uint, content string) (*models.Comment
 func (s *commentService) DeleteComment(id uint) error {
 	comment, err := s.commentRepo.GetCommentByID(id)
 	if err != nil {
-		return fmt.Errorf("failed to get comment: %v", err)
+		return fmt.Errorf("Lấy bình luận thất bại: %v", err)
 	}
 	if comment.DeletedAt.Valid {
-		return fmt.Errorf("comment not found")
+		return fmt.Errorf("Không tìm thấy bình luận")
 	}
 
 	childIDs, err := s.commentRepo.GetAllChildCommentIDs(id)
 	if err != nil {
-		return fmt.Errorf("failed to get child comment IDs: %v", err)
+		return fmt.Errorf("Lấy ID bình luận con thất bại: %v", err)
 	}
 
 	if err := s.commentRepo.DeleteComment(id); err != nil {
-		return fmt.Errorf("failed to delete comment: %v", err)
+		return fmt.Errorf("Xóa bình luận thất bại: %v", err)
 	}
 
 	s.invalidateCache(fmt.Sprintf("comment:%d", id))
@@ -217,7 +247,7 @@ func (s *commentService) DeleteComment(id uint) error {
 	}
 	s.invalidateCache("comments:all:*")
 
-	log.Printf("Deleted comment %d and its children, invalidated cache", id)
+	log.Printf("Đã xóa bình luận %d và các con của nó, xóa cache", id)
 	return nil
 }
 
@@ -235,7 +265,7 @@ func (s *commentService) ListComments(filters map[string]interface{}) ([]models.
 	} else if answerID, ok := filters["answer_id"].(uint); ok {
 		cacheKey = utils.GenerateCacheKey("comments:answer", answerID, filters)
 	} else {
-		return nil, 0, fmt.Errorf("post_id or answer_id is required")
+		return nil, 0, fmt.Errorf("post_id hoặc answer_id là bắt buộc")
 	}
 
 	ctx := context.Background()
@@ -245,18 +275,18 @@ func (s *commentService) ListComments(filters map[string]interface{}) ([]models.
 		var response CommentListResponse
 		if err := json.Unmarshal([]byte(cached), &response); err == nil {
 			if s.validateCommentsUserData(response.Comments) {
-				log.Printf("Cache hit for %s", cacheKey)
+				log.Printf("Cache hit cho %s", cacheKey)
 				return response.Comments, response.Total, nil
 			}
 		}
 	}
 	if err != redis.Nil {
-		log.Printf("Redis error for %s: %v", cacheKey, err)
+		log.Printf("Lỗi Redis cho %s: %v", cacheKey, err)
 	}
 
 	comments, total, err := s.commentRepo.ListComments(filters)
 	if err != nil {
-		return nil, 0, fmt.Errorf("failed to list comments: %v", err)
+		return nil, 0, fmt.Errorf("Lấy danh sách bình luận thất bại: %v", err)
 	}
 
 	response := CommentListResponse{
@@ -267,7 +297,7 @@ func (s *commentService) ListComments(filters map[string]interface{}) ([]models.
 	data, err := json.Marshal(response)
 	if err == nil {
 		if err := s.redisClient.Set(ctx, cacheKey, data, 2*time.Minute).Err(); err != nil {
-			log.Printf("Failed to set cache for %s: %v", cacheKey, err)
+			log.Printf("Lưu cache cho %s thất bại: %v", cacheKey, err)
 		}
 	}
 
@@ -283,18 +313,18 @@ func (s *commentService) ListReplies(parentID uint, filters map[string]interface
 		var response CommentListResponse
 		if err := json.Unmarshal([]byte(cached), &response); err == nil {
 			if s.validateCommentsUserData(response.Comments) {
-				log.Printf("Cache hit for %s", cacheKey)
+				log.Printf("Cache hit cho %s", cacheKey)
 				return response.Comments, response.Total, nil
 			}
 		}
 	}
 	if err != redis.Nil {
-		log.Printf("Redis error for %s: %v", cacheKey, err)
+		log.Printf("Lỗi Redis cho %s: %v", cacheKey, err)
 	}
 
 	replies, total, err := s.commentRepo.ListReplies(parentID, filters)
 	if err != nil {
-		return nil, 0, fmt.Errorf("failed to list replies: %v", err)
+		return nil, 0, fmt.Errorf("Lấy danh sách trả lời thất bại: %v", err)
 	}
 
 	response := CommentListResponse{
@@ -305,7 +335,7 @@ func (s *commentService) ListReplies(parentID uint, filters map[string]interface
 	data, err := json.Marshal(response)
 	if err == nil {
 		if err := s.redisClient.Set(ctx, cacheKey, data, 2*time.Minute).Err(); err != nil {
-			log.Printf("Failed to set cache for %s: %v", cacheKey, err)
+			log.Printf("Lưu cache cho %s thất bại: %v", cacheKey, err)
 		}
 	}
 
@@ -314,6 +344,7 @@ func (s *commentService) ListReplies(parentID uint, filters map[string]interface
 
 func (s *commentService) GetAllComments(filters map[string]interface{}) ([]models.Comment, int, error) {
 	cacheKey := utils.GenerateCacheKey("comments:all", 0, filters)
+
 	ctx := context.Background()
 
 	cached, err := s.redisClient.Get(ctx, cacheKey).Result()
@@ -321,18 +352,18 @@ func (s *commentService) GetAllComments(filters map[string]interface{}) ([]model
 		var response CommentListResponse
 		if err := json.Unmarshal([]byte(cached), &response); err == nil {
 			if s.validateCommentsUserData(response.Comments) {
-				log.Printf("Cache hit for %s", cacheKey)
+				log.Printf("Cache hit cho %s", cacheKey)
 				return response.Comments, response.Total, nil
 			}
 		}
 	}
 	if err != redis.Nil {
-		log.Printf("Redis error for %s: %v", cacheKey, err)
+		log.Printf("Lỗi Redis cho %s: %v", cacheKey, err)
 	}
 
 	comments, total, err := s.commentRepo.GetAllComments(filters)
 	if err != nil {
-		return nil, 0, fmt.Errorf("failed to get all comments: %v", err)
+		return nil, 0, fmt.Errorf("Lấy tất cả bình luận thất bại: %v", err)
 	}
 
 	response := CommentListResponse{
@@ -343,7 +374,7 @@ func (s *commentService) GetAllComments(filters map[string]interface{}) ([]model
 	data, err := json.Marshal(response)
 	if err == nil {
 		if err := s.redisClient.Set(ctx, cacheKey, data, 2*time.Minute).Err(); err != nil {
-			log.Printf("Failed to set cache for %s: %v", cacheKey, err)
+			log.Printf("Lưu cache cho %s thất bại: %v", cacheKey, err)
 		}
 	}
 
@@ -352,16 +383,15 @@ func (s *commentService) GetAllComments(filters map[string]interface{}) ([]model
 
 func (s *commentService) UpdateCommentStatus(id uint, status string) (*models.Comment, error) {
 	if !IsValidCommentStatus(status) {
-		return nil, errors.New("Invalid status")
+		return nil, errors.New("Trạng thái không hợp lệ")
 	}
 	if err := s.commentRepo.UpdateCommentStatus(id, status); err != nil {
-		log.Printf("Failed to update comment status: %v", err)
+		log.Printf("Cập nhật trạng thái bình luận thất bại: %v", err)
 		return nil, err
 	}
 	comment, err := s.commentRepo.GetCommentByID(id)
 	if err != nil {
-		log.Printf("Failed to get Updated comment %d: %v", id, err)
-		return nil, err
+		log.Printf("Lấy bình luận đã cập nhật %d thất bại: %v", id, err)
 	}
 	s.invalidateCache(fmt.Sprintf("comment:%d", id))
 	if comment.PostID != nil {
@@ -390,11 +420,46 @@ func IsValidCommentStatus(status string) bool {
 func (s *commentService) validateCommentsUserData(comments []models.Comment) bool {
 	for _, comment := range comments {
 		if comment.User.ID == 0 || comment.DeletedAt.Valid {
-			log.Printf("Invalid comment data: ID %d, UserID %d, Deleted %v", comment.ID, comment.User.ID, comment.DeletedAt.Valid)
+			log.Printf("Dữ liệu bình luận không hợp lệ: ID %d, UserID %d, Deleted %v", comment.ID, comment.User.ID, comment.DeletedAt.Valid)
 			return false
 		}
 	}
 	return true
+}
+
+func (s *commentService) updateCacheAfterCreate(comment *models.Comment, id uint, isQuestion bool) {
+	prefix := "answer"
+	if isQuestion {
+		prefix = "question"
+	}
+	cachePattern := fmt.Sprintf("comments:%s:%d:*", prefix, id)
+	ctx := context.Background()
+
+	keys, err := s.redisClient.Keys(ctx, cachePattern).Result()
+	if err != nil {
+		log.Printf("Lấy khóa cache cho pattern %s thất bại: %v", cachePattern, err)
+		return
+	}
+
+	pipe := s.redisClient.Pipeline()
+	for _, key := range keys {
+		cached, err := s.redisClient.Get(ctx, key).Result()
+		if err == nil {
+			var response CommentListResponse
+			if err := json.Unmarshal([]byte(cached), &response); err == nil {
+				response.Comments = append([]models.Comment{*comment}, response.Comments...)
+				response.Total++
+				data, err := json.Marshal(response)
+				if err == nil {
+					pipe.Set(ctx, key, data, 2*time.Minute)
+				}
+			}
+		}
+	}
+
+	if _, err := pipe.Exec(ctx); err != nil {
+		log.Printf("Cập nhật cache cho pattern %s thất bại: %v", cachePattern, err)
+	}
 }
 
 func (s *commentService) updateReplyCacheAfterCreate(comment *models.Comment, parentID uint) {
@@ -404,7 +469,7 @@ func (s *commentService) updateReplyCacheAfterCreate(comment *models.Comment, pa
 	pipe := s.redisClient.Pipeline()
 	keys, err := s.redisClient.Keys(ctx, cachePattern).Result()
 	if err != nil {
-		log.Printf("Failed to get cache keys for reply pattern %s: %v", cachePattern, err)
+		log.Printf("Lấy khóa cache cho reply pattern %s thất bại: %v", cachePattern, err)
 		return
 	}
 
@@ -423,10 +488,11 @@ func (s *commentService) updateReplyCacheAfterCreate(comment *models.Comment, pa
 		}
 	}
 
+	// Update parent comment's has_replies
 	parentCachePattern := fmt.Sprintf("comments:*:*")
 	parentKeys, err := s.redisClient.Keys(ctx, parentCachePattern).Result()
 	if err != nil {
-		log.Printf("Failed to get cache keys for parent pattern %s: %v", parentCachePattern, err)
+		log.Printf("Lấy khóa cache cho parent pattern %s thất bại: %v", parentCachePattern, err)
 		return
 	}
 
@@ -449,7 +515,7 @@ func (s *commentService) updateReplyCacheAfterCreate(comment *models.Comment, pa
 	}
 
 	if _, err := pipe.Exec(ctx); err != nil {
-		log.Printf("Failed to update cache for patterns %s and %s: %v", cachePattern, parentCachePattern, err)
+		log.Printf("Cập nhật cache cho patterns %s và %s thất bại: %v", cachePattern, parentCachePattern, err)
 	}
 }
 
@@ -457,13 +523,13 @@ func (s *commentService) invalidateCache(pattern string) {
 	ctx := context.Background()
 	keys, err := s.redisClient.Keys(ctx, pattern).Result()
 	if err != nil {
-		log.Printf("Failed to get cache keys for pattern %s: %v", pattern, err)
+		log.Printf("Lấy khóa cache cho pattern %s thất bại: %v", pattern, err)
 		return
 	}
 
 	if len(keys) > 0 {
 		if err := s.redisClient.Del(ctx, keys...).Err(); err != nil {
-			log.Printf("Failed to delete cache keys %v: %v", keys, err)
+			log.Printf("Xóa khóa cache %v thất bại: %v", keys, err)
 		}
 	}
 }

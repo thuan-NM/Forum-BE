@@ -3,6 +3,7 @@ package routes
 import (
 	"Forum_BE/controllers"
 	"Forum_BE/middlewares"
+	"Forum_BE/notification"
 	"Forum_BE/repositories"
 	"Forum_BE/services"
 	"github.com/gin-gonic/gin"
@@ -10,11 +11,12 @@ import (
 	"gorm.io/gorm"
 )
 
-func FollowRoutes(db *gorm.DB, authorized *gin.RouterGroup, permService services.PermissionService, redisClient *redis.Client) {
+func FollowRoutes(db *gorm.DB, authorized *gin.RouterGroup, permService services.PermissionService, redisClient *redis.Client, novuClient *notification.NovuClient) {
 	topicFollowRepo := repositories.NewTopicFollowRepository(db)
 	questionFollowRepo := repositories.NewQuestionFollowRepository(db)
 	userFollowRepo := repositories.NewUserFollowRepository(db)
-	followService := services.NewFollowService(topicFollowRepo, questionFollowRepo, userFollowRepo, redisClient, db)
+	userRepo := repositories.NewUserRepository(db)
+	followService := services.NewFollowService(topicFollowRepo, questionFollowRepo, userFollowRepo, userRepo, redisClient, db, novuClient)
 	followController := controllers.NewFollowController(followService)
 
 	follows := authorized.Group("/follows")

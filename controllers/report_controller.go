@@ -19,12 +19,11 @@ func NewReportController(r services.ReportService) *ReportController {
 
 func (rc *ReportController) CreateReport(c *gin.Context) {
 	var req struct {
-		Reason         string                 `json:"reason" binding:"required"`
-		Details        string                 `json:"details"`
-		ContentType    string                 `json:"content_type" binding:"required"`
-		ContentID      string                 `json:"content_id" binding:"required"`
-		ContentPreview string                 `json:"content_preview" binding:"required"`
-		Metadata       map[string]interface{} `json:"metadata"`
+		Reason         string `json:"reason" binding:"required"`
+		Details        string `json:"details"`
+		ContentType    string `json:"content_type" binding:"required"`
+		ContentID      string `json:"content_id" binding:"required"`
+		ContentPreview string `json:"content_preview" binding:"required"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -34,7 +33,7 @@ func (rc *ReportController) CreateReport(c *gin.Context) {
 
 	userID := c.GetUint("user_id")
 
-	report, err := rc.reportService.CreateReport(req.Reason, userID, req.ContentType, req.ContentID, req.ContentPreview, req.Details, req.Metadata)
+	report, err := rc.reportService.CreateReport(req.Reason, userID, req.ContentType, req.ContentID, req.ContentPreview, req.Details)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
