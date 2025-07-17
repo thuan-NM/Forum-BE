@@ -23,6 +23,5 @@ type Group struct {
 
 	// Relationships
 	Notifications []Notification `json:"notifications,omitempty" gorm:"polymorphic:Entity;"`
-	Attachments   []Attachment   `json:"attachments,omitempty" gorm:"polymorphic:Entity;"`
 	Members       []User         `json:"members,omitempty" gorm:"many2many:group_members;"`
 }

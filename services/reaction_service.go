@@ -2,7 +2,9 @@ package services
 
 import (
 	"Forum_BE/models"
+	"Forum_BE/notification" // Giả sử có package notification với NovuClient
 	"Forum_BE/repositories"
+	"Forum_BE/utils"
 	"context"
 	"encoding/json"
 	"errors"
@@ -27,18 +29,38 @@ type ReactionService interface {
 
 type reactionService struct {
 	reactionRepo repositories.ReactionRepository
+	answerRepo   repositories.AnswerRepository
+	postRepo     repositories.PostRepository
+	commentRepo  repositories.CommentRepository
+	userRepo     repositories.UserRepository // Thêm UserRepository
 	redisClient  *redis.Client
+	novuClient   *notification.NovuClient // Thêm NovuClient
 }
 
-func NewReactionService(repo repositories.ReactionRepository, redisClient *redis.Client) ReactionService {
+func NewReactionService(repo repositories.ReactionRepository, userRepo repositories.UserRepository, answerRepo repositories.AnswerRepository, postRepo repositories.PostRepository, commentRepo repositories.CommentRepository, redisClient *redis.Client, novuClient *notification.NovuClient) ReactionService {
 	if repo == nil {
 		log.Fatal("reaction repository is nil")
 	}
 	if redisClient == nil {
 		log.Fatal("redis client is nil")
 	}
-	log.Printf("Initialized ReactionService with repo: %v, redis: %v", repo != nil, redisClient != nil)
-	return &reactionService{reactionRepo: repo, redisClient: redisClient}
+	if userRepo == nil {
+		log.Fatal("user repository is nil")
+	}
+	if answerRepo == nil {
+		log.Fatal("user repository is nil")
+	}
+	if postRepo == nil {
+		log.Fatal("user repository is nil")
+	}
+	if commentRepo == nil {
+		log.Fatal("user repository is nil")
+	}
+	if novuClient == nil {
+		log.Fatal("novu client is nil")
+	}
+	log.Printf("Initialized ReactionService with repo: %v, userRepo: %v, redis: %v, novu: %v", repo != nil, userRepo != nil, redisClient != nil, novuClient != nil)
+	return &reactionService{reactionRepo: repo, userRepo: userRepo, answerRepo: answerRepo, postRepo: postRepo, commentRepo: commentRepo, redisClient: redisClient, novuClient: novuClient}
 }
 
 type ReactionListResponse struct {
@@ -95,6 +117,43 @@ func (s *reactionService) CreateReaction(userID uint, postID, commentID, answerI
 		s.invalidateCache(fmt.Sprintf("reaction_count:answer:%d", *answerID))
 	}
 	s.invalidateCache("reactions:all:*")
+
+	// Send notification
+	reactor, err := s.userRepo.GetUserByID(userID)
+	if err != nil {
+		log.Printf("Không lấy được thông tin người phản ứng: %v", err)
+	} else {
+		if postID != nil {
+			// Lấy thông tin post để gửi thông báo cho chủ sở hữu
+			post, err := s.postRepo.GetPostByID(*postID) // Giả sử có method này trong repository
+			if err == nil && post.UserID != userID {
+				workflowID := "new-post-reaction-notification"
+				message := fmt.Sprintf("%s đã thích bài viết của bạn: %s", reactor.FullName, post.Title)
+				if err := s.novuClient.SendNotification(post.UserID, workflowID, message); err != nil {
+					log.Printf("Gửi thông báo phản ứng bài viết thất bại: %v", err)
+				}
+			}
+		} else if commentID != nil {
+			comment, err := s.commentRepo.GetCommentByID(*commentID)
+			if err == nil && comment.UserID != userID {
+				workflowID := "new-comment-reaction-notification"
+				message := fmt.Sprintf("%s đã thích bình luận của bạn: %s", reactor.FullName, utils.StripHTML(comment.Content))
+				if err := s.novuClient.SendNotification(comment.UserID, workflowID, message); err != nil {
+					log.Printf("Gửi thông báo thích bình luận thất bại: %v", err)
+				}
+			}
+		} else if answerID != nil {
+			answer, err := s.answerRepo.GetAnswerByID(*answerID)
+			if err == nil && answer.UserID != userID {
+				workflowID := "new-answer-reaction-notification"
+				message := fmt.Sprintf("%s đã thích câu trả lời của bạn: %s", reactor.FullName, answer.Title)
+				if err := s.novuClient.SendNotification(answer.UserID, workflowID, message); err != nil {
+					log.Printf("Gửi thông báo thích câu trả lời thất bại: %v", err)
+				}
+			}
+		}
+	}
+
 	return reaction, nil
 }
 
@@ -183,7 +242,6 @@ func (s *reactionService) DeleteReaction(id, userID uint) error {
 		log.Printf("Failed to delete reaction %d: %v", id, err)
 		return err
 	}
-	// Invalidate cache for user reaction using the same key format as CheckUserReaction
 	filters := map[string]interface{}{
 		"user_id": userID,
 	}

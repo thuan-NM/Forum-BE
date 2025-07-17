@@ -3,6 +3,7 @@ package routes
 import (
 	"Forum_BE/controllers"
 	"Forum_BE/middlewares"
+	"Forum_BE/notification"
 	"Forum_BE/repositories"
 	"Forum_BE/services"
 	"github.com/gin-gonic/gin"
@@ -10,9 +11,13 @@ import (
 	"gorm.io/gorm"
 )
 
-func ReactionRoutes(db *gorm.DB, authorized *gin.RouterGroup, permService services.PermissionService, redisClient *redis.Client) {
+func ReactionRoutes(db *gorm.DB, authorized *gin.RouterGroup, permService services.PermissionService, redisClient *redis.Client, novuClient *notification.NovuClient) {
 	reactionRepo := repositories.NewReactionRepository(db)
-	reactionService := services.NewReactionService(reactionRepo, redisClient)
+	userRepo := repositories.NewUserRepository(db)
+	postRepo := repositories.NewPostRepository(db)
+	answerRepo := repositories.NewAnswerRepository(db)
+	commentRepo := repositories.NewCommentRepository(db)
+	reactionService := services.NewReactionService(reactionRepo, userRepo, answerRepo, postRepo, commentRepo, redisClient, novuClient)
 	reactionController := controllers.NewReactionController(reactionService)
 
 	reactions := authorized.Group("/reactions")

@@ -1,7 +1,7 @@
 package routes
 
 import (
-	"Forum_BE/config"
+	"Forum_BE/notification"
 	"github.com/cloudinary/cloudinary-go/v2"
 	"os"
 
@@ -20,9 +20,9 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, jwtSecret string, redisClient *redi
 	userRepo := repositories.NewUserRepository(db)
 	permissionRepo := repositories.NewPermissionRepository(db)
 	permService := services.NewPermissionService(permissionRepo, userRepo)
-
+	novuClient := notification.NewNovuClient(os.Getenv("NOVU"))
 	var permissions []models.Permission
-	config.InitPermissions()
+	//config.InitPermissions()
 	// Khởi tạo Cloudinary
 	cld, err := cloudinary.NewFromParams(
 		os.Getenv("CLOUDINARY_CLOUD_NAME"),
@@ -57,10 +57,10 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, jwtSecret string, redisClient *redi
 		QuestionRoutes(db, authorized, permService, redisClient)
 		PostRoutes(db, authorized, permService, redisClient)
 		AnswerRoutes(db, authorized, permService, redisClient)
-		CommentRoutes(db, authorized, permService, redisClient, cld, uploadPreset)
+		CommentRoutes(db, authorized, permService, redisClient, novuClient)
 		TagRoutes(db, authorized, permService, redisClient)
 		TopicRoutes(db, authorized, permService, redisClient)
-		FollowRoutes(db, authorized, permService, redisClient)
+		FollowRoutes(db, authorized, permService, redisClient, novuClient)
 		GroupRoutes(db, authorized, permService, redisClient)
 		VoteRoutes(db, authorized, permService)
 		ReportRoutes(db, authorized, permService, redisClient)
@@ -68,6 +68,6 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, jwtSecret string, redisClient *redi
 		FileRoutes(db, authorized, permService, redisClient, cld, uploadPreset)
 
 		PassRoutes(db, authorized, permService, redisClient)
-		ReactionRoutes(db, authorized, permService, redisClient)
+		ReactionRoutes(db, authorized, permService, redisClient, novuClient)
 	}
 }

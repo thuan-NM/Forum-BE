@@ -25,7 +25,7 @@ func (r *topicFollowRepository) CreateFollow(follow *models.TopicFollow) error {
 }
 
 func (r *topicFollowRepository) DeleteFollow(userID, topicID uint) error {
-	return r.db.Where("user_id = ? AND topic_id = ?", userID, topicID).Delete(&models.TopicFollow{}).Error
+	return r.db.Unscoped().Where("user_id = ? AND topic_id = ?", userID, topicID).Delete(&models.TopicFollow{}).Error
 }
 
 func (r *topicFollowRepository) GetFollowsByTopic(topicID uint) ([]models.TopicFollow, error) {

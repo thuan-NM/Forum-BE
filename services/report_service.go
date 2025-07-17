@@ -15,7 +15,7 @@ import (
 )
 
 type ReportService interface {
-	CreateReport(reason string, reporterID uint, contentType string, contentID string, contentPreview string, details string, metadata map[string]interface{}) (*models.Report, error)
+	CreateReport(reason string, reporterID uint, contentType string, contentID string, contentPreview string, details string) (*models.Report, error)
 	GetReportByID(id string) (*models.Report, error)
 	UpdateReport(id string, reason string, details string, resolvedByID *uint) (*models.Report, error)
 	UpdateReportStatus(id string, status string, resolvedByID *uint) (*models.Report, error)
@@ -54,7 +54,7 @@ func NewReportService(
 	}
 }
 
-func (s *reportService) CreateReport(reason string, reporterID uint, contentType string, contentID string, contentPreview string, details string, metadata map[string]interface{}) (*models.Report, error) {
+func (s *reportService) CreateReport(reason string, reporterID uint, contentType string, contentID string, contentPreview string, details string) (*models.Report, error) {
 	if reason == "" || contentType == "" || contentID == "" || contentPreview == "" {
 		return nil, errors.New("reason, content type, content ID, and content preview are required")
 	}

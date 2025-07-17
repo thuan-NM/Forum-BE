@@ -4,6 +4,7 @@ import (
 	"Forum_BE/responses"
 	"Forum_BE/services"
 	"github.com/gin-gonic/gin"
+	"log"
 	"net/http"
 	"strconv"
 )
@@ -11,54 +12,28 @@ import (
 type CommentController struct {
 	commentService services.CommentService
 	voteService    services.VoteService
-	fileService    services.FileService
 }
 
-func NewCommentController(c services.CommentService, v services.VoteService, f services.FileService) *CommentController {
-	return &CommentController{
-		commentService: c,
-		voteService:    v,
-		fileService:    f,
-	}
+func NewCommentController(c services.CommentService, v services.VoteService) *CommentController {
+	return &CommentController{commentService: c, voteService: v}
 }
 
 func (cc *CommentController) CreateComment(c *gin.Context) {
 	var req struct {
-		Content       string `json:"content" binding:"required"`
-		PostID        *uint  `json:"post_id"`
-		AnswerID      *uint  `json:"answer_id"`
-		ParentID      *uint  `json:"parent_id"`
-		AttachmentIDs []uint `json:"attachment_ids"`
+		Content  string `json:"content" binding:"required"`
+		PostID   *uint  `json:"post_id"`
+		AnswerID *uint  `json:"answer_id"`
+		ParentID *uint  `json:"parent_id"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request: " + err.Error()})
 		return
 	}
-
 	userID := c.GetUint("user_id")
 	comment, err := cc.commentService.CreateComment(req.Content, userID, req.PostID, req.AnswerID, req.ParentID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
-	}
-
-	// Liên kết các attachment với comment
-	for _, attachmentID := range req.AttachmentIDs {
-		attachment, err := cc.fileService.GetFileByID(attachmentID)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid attachment ID: " + err.Error()})
-			return
-		}
-		if attachment.EntityType != "" || attachment.EntityID != 0 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "attachment already linked to another entity"})
-			return
-		}
-		attachment.EntityType = "comment"
-		attachment.EntityID = comment.ID
-		if err := cc.fileService.UpdateFile(attachment); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to link attachment: " + err.Error()})
-			return
-		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -67,7 +42,6 @@ func (cc *CommentController) CreateComment(c *gin.Context) {
 	})
 }
 
-// Các hàm khác giữ nguyên, chỉ thêm UpdateFile vào FileService
 func (cc *CommentController) GetComment(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -136,8 +110,8 @@ func (cc *CommentController) ListComments(c *gin.Context) {
 
 	postID := c.Query("post_id")
 	if postID != "" {
-		if id, err := strconv.ParseUint(postID, 10, 64); err == nil {
-			filters["post_id"] = uint(id)
+		if postID, err := strconv.ParseUint(postID, 10, 64); err == nil {
+			filters["post_id"] = uint(postID)
 		}
 	}
 
@@ -222,12 +196,15 @@ func (cc *CommentController) ListReplies(c *gin.Context) {
 	})
 }
 
+// Thêm vào comment_controller.go
+
 func (cc *CommentController) GetAllComments(c *gin.Context) {
 	filters := make(map[string]interface{})
 
 	if search := c.Query("search"); search != "" {
 		filters["search"] = search
 	}
+
 	if status := c.Query("status"); status != "" {
 		filters["status"] = status
 	}
@@ -261,17 +238,17 @@ func (cc *CommentController) GetAllComments(c *gin.Context) {
 		"total":    total,
 	})
 }
-
 func (cc *CommentController) UpdateStatus(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid comment id"})
-		return
 	}
 	var req struct {
 		Status string `json:"status" binding:"required"`
 	}
+	log.Printf(req.Status)
+
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
