@@ -38,7 +38,12 @@ func (r *answerRepository) GetAllAnswers(filters map[string]interface{}) ([]mode
 	status, okStatus := filters["status"].(string)
 	page, okPage := filters["page"].(int)
 	limit, okLimit := filters["limit"].(int)
-
+	if tagfilter, ok := filters["tagfilter"].(uint); ok {
+		query = query.
+			Joins("JOIN answer_tags ON answer_tags.answer_id = answers.id").
+			Joins("JOIN tags ON tags.id = answer_tags.tag_id").
+			Where("tags.id = ?", tagfilter)
+	}
 	// Default pagination values
 	if !okPage || page < 1 {
 		page = 1
