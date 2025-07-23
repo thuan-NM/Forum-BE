@@ -191,7 +191,11 @@ func (ac *AnswerController) GetAllAnswers(c *gin.Context) {
 			filters["limit"] = l
 		}
 	}
-
+	if tagfilter := c.Query("tagfilter"); tagfilter != "" {
+		if tagfilter, err := strconv.ParseUint(tagfilter, 10, 64); err == nil {
+			filters["tagfilter"] = uint(tagfilter)
+		}
+	}
 	answers, total, err := ac.answerService.GetAllAnswers(filters)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
