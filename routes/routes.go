@@ -2,7 +2,6 @@ package routes
 
 import (
 	"Forum_BE/notification"
-	"github.com/cloudinary/cloudinary-go/v2"
 	"os"
 
 	// "Forum_BE/config"
@@ -21,18 +20,9 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, jwtSecret string, redisClient *redi
 	permissionRepo := repositories.NewPermissionRepository(db)
 	permService := services.NewPermissionService(permissionRepo, userRepo)
 	novuClient := notification.NewNovuClient(os.Getenv("NOVU"))
+	novuClient := notification.NewNovuClient(os.Getenv("NOVU"))
 	var permissions []models.Permission
 	//config.InitPermissions()
-	// Khởi tạo Cloudinary
-	cld, err := cloudinary.NewFromParams(
-		os.Getenv("CLOUDINARY_CLOUD_NAME"),
-		os.Getenv("CLOUDINARY_API_KEY"),
-		os.Getenv("CLOUDINARY_API_SECRET"),
-	)
-	if err != nil {
-		log.Fatalf("Failed to initialize Cloudinary: %v", err)
-	}
-	uploadPreset := os.Getenv("CLOUDINARY_UPLOAD_PRESET")
 	for _, perm := range permissions {
 		existingPerm, err := permService.GetPermission(string(perm.Role), perm.Resource, perm.Action)
 		if err == nil && existingPerm != nil {
@@ -48,26 +38,33 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, jwtSecret string, redisClient *redi
 	}
 
 	AuthRoutes(r, db, jwtSecret, redisClient)
+	AuthRoutes(r, db, jwtSecret, redisClient)
 
 	authMiddleware := middlewares.AuthMiddleware(jwtSecret)
 	authorized := r.Group("/api")
 	authorized.Use(authMiddleware)
 	{
 		UserRoutes(db, authorized, permService, redisClient)
+		UserRoutes(db, authorized, permService, redisClient)
 		QuestionRoutes(db, authorized, permService, redisClient)
 		PostRoutes(db, authorized, permService, redisClient)
 		AnswerRoutes(db, authorized, permService, redisClient)
 		CommentRoutes(db, authorized, permService, redisClient, novuClient)
 		TagRoutes(db, authorized, permService, redisClient)
+		CommentRoutes(db, authorized, permService, redisClient, novuClient)
+		TagRoutes(db, authorized, permService, redisClient)
 		TopicRoutes(db, authorized, permService, redisClient)
+		FollowRoutes(db, authorized, permService, redisClient, novuClient)
 		FollowRoutes(db, authorized, permService, redisClient, novuClient)
 		GroupRoutes(db, authorized, permService, redisClient)
 		VoteRoutes(db, authorized, permService)
 		ReportRoutes(db, authorized, permService, redisClient)
+		ReportRoutes(db, authorized, permService, redisClient)
 		PermissionRoutes(authorized, permService)
-		FileRoutes(db, authorized, permService, redisClient, cld, uploadPreset)
-
+		//FileRoutes(db, authorized, permService, redisClient, cld, uploadPreset)
+		AttachmentRoutes(db, authorized, permService, redisClient)
 		PassRoutes(db, authorized, permService, redisClient)
+		ReactionRoutes(db, authorized, permService, redisClient, novuClient)
 		ReactionRoutes(db, authorized, permService, redisClient, novuClient)
 	}
 }

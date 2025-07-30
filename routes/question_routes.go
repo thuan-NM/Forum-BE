@@ -26,6 +26,7 @@ func QuestionRoutes(db *gorm.DB, authorized *gin.RouterGroup, permService servic
 		questions.PUT("/:id", middlewares.CheckPermission(permService, "question", "edit"), questionController.UpdateQuestion)
 		questions.DELETE("/:id", middlewares.CheckPermission(permService, "question", "delete"), questionController.DeleteQuestion)
 		questions.GET("/", middlewares.CheckPermission(permService, "question", "view"), questionController.ListQuestions)
+		questions.GET("/all", middlewares.CheckPermission(permService, "question", "view"), questionController.GetAllQuestion)
 		questions.GET("/suggest", middlewares.CheckPermission(permService, "question", "view"), questionController.SuggestQuestions)
 		questions.PUT("/:id/status", middlewares.CheckPermission(permService, "question", "change_status"), questionController.UpdateQuestionStatus)
 		questions.PUT("/:id/interaction-status", middlewares.CheckPermission(permService, "question", "change_inter_status"), questionController.UpdateInteractionStatus)

@@ -14,12 +14,17 @@ type AnswerController struct {
 
 func NewAnswerController(a services.AnswerService) *AnswerController {
 	return &AnswerController{answerService: a}
+func NewAnswerController(a services.AnswerService) *AnswerController {
+	return &AnswerController{answerService: a}
 }
 
 func (ac *AnswerController) CreateAnswer(c *gin.Context) {
 	var req struct {
 		Title      string `json:"title" binding:"required"`
+		Title      string `json:"title" binding:"required"`
 		Content    string `json:"content" binding:"required"`
+		QuestionID uint   `json:"questionId" binding:"required"`
+		Tags       []uint `json:"tags" binding:"required"`
 		QuestionID uint   `json:"questionId" binding:"required"`
 		Tags       []uint `json:"tags" binding:"required"`
 	}
@@ -32,6 +37,7 @@ func (ac *AnswerController) CreateAnswer(c *gin.Context) {
 	userID := c.GetUint("user_id") // Middleware đã thêm user_id vào context
 
 	answer, err := ac.answerService.CreateAnswer(req.Content, userID, req.QuestionID, req.Tags, req.Title)
+	answer, err := ac.answerService.CreateAnswer(req.Content, userID, req.QuestionID, req.Tags, req.Title)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -39,6 +45,7 @@ func (ac *AnswerController) CreateAnswer(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Answer created successfully",
+		"answer":  responses.ToAnswerResponse(answer),
 		"answer":  responses.ToAnswerResponse(answer),
 	})
 }
@@ -59,6 +66,7 @@ func (ac *AnswerController) GetAnswer(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
+		"answer": responses.ToAnswerResponse(answer),
 		"answer": responses.ToAnswerResponse(answer),
 	})
 }
@@ -88,6 +96,7 @@ func (ac *AnswerController) EditAnswer(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Answer updated successfully",
+		"answer":  responses.ToAnswerResponse(answer),
 		"answer":  responses.ToAnswerResponse(answer),
 	})
 }
@@ -153,6 +162,24 @@ func (ac *AnswerController) ListAnswers(c *gin.Context) {
 	filters["page"] = page
 
 	answers, total, err := ac.answerService.ListAnswers(filters)
+	limitStr := c.Query("limit")
+	pageStr := c.Query("page")
+	limit := 10 // Default limit
+	page := 1   // Default page
+	if limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
+			limit = l
+		}
+	}
+	if pageStr != "" {
+		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+			page = p
+		}
+	}
+	filters["limit"] = limit
+	filters["page"] = page
+
+	answers, total, err := ac.answerService.ListAnswers(filters)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list answers"})
 		return
@@ -181,6 +208,13 @@ func (ac *AnswerController) GetAllAnswers(c *gin.Context) {
 	if questiontitle := c.Query("questiontitle"); questiontitle != "" {
 		filters["questiontitle"] = questiontitle
 	}
+	userID := c.Query("user_id")
+	if userID != "" {
+		uID, err := strconv.ParseUint(userID, 10, 64)
+		if err == nil {
+			filters["user_id"] = uint(uID)
+		}
+	}
 	if page := c.Query("page"); page != "" {
 		if p, err := strconv.Atoi(page); err == nil {
 			filters["page"] = p
@@ -205,10 +239,64 @@ func (ac *AnswerController) GetAllAnswers(c *gin.Context) {
 	var responseAnswers []responses.AnswerResponse
 	for _, answer := range answers {
 		responseAnswers = append(responseAnswers, responses.ToAnswerResponse(&answer))
+	var responseAnswers []responses.AnswerResponse
+	for _, answer := range answers {
+		responseAnswers = append(responseAnswers, responses.ToAnswerResponse(&answer))
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"answers": responseAnswers,
+		"total":   total,
+	})
+}
+func (ac *AnswerController) UpdateAnswerStatus(c *gin.Context) {
+	idParam := c.Param("id")
+	id, err := strconv.ParseUint(idParam, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid answer id"})
+		return
+	}
+
+	var req struct {
+		Status string `json:"status" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	answer, err := ac.answerService.UpdateAnswerStatus(uint(id), req.Status)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Answer status updated successfully",
+		"answer":  responses.ToAnswerResponse(answer),
+	})
+}
+
+func (ac *AnswerController) AcceptAnswer(c *gin.Context) {
+	idParam := c.Param("id")
+	id, err := strconv.ParseUint(idParam, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid answer id"})
+		return
+	}
+
+	userID := c.GetUint("user_id") // Lấy từ middleware
+
+	answer, err := ac.answerService.AcceptAnswer(uint(id), userID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Answer accepted successfully",
+		"answer":  responses.ToAnswerResponse(answer),
 		"total":   total,
 	})
 }

@@ -1,22 +1,26 @@
 package config
 
 import (
+	"log"
+	"time"
+
 	"Forum_BE/infrastructure"
 	"Forum_BE/models"
 	"Forum_BE/repositories"
 	"Forum_BE/services"
-	"log"
-	"time"
 )
 
 func InitPermissions() {
+func InitPermissions() {
 	cfg := LoadConfig()
+	// Connect to database
 	// Connect to database
 	db, err := infrastructure.ConnectMySQL(cfg.DBDSN)
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
 	}
 
+	// Auto migrate all models
 	// Auto migrate all models
 	err = db.AutoMigrate(
 		&models.User{},
@@ -29,6 +33,13 @@ func InitPermissions() {
 		&models.Follow{},
 		&models.Group{},
 		&models.PassedQuestion{},
+		&models.Post{},
+		&models.Report{},
+		&models.Notification{},
+		&models.Attachment{},
+		&models.Message{},
+		&models.Topic{},
+		&models.Reaction{},
 		&models.Post{},
 		&models.Report{},
 		&models.Notification{},
@@ -133,7 +144,7 @@ func InitPermissions() {
 			"edit":   {models.RoleRoot},
 			"delete": {models.RoleRoot},
 		},
-		"file": {
+		"attachment": {
 			"create": {models.RoleRoot, models.RoleAdmin, models.RoleEmployee, models.RoleUser},
 			"view":   {models.RoleRoot, models.RoleAdmin, models.RoleEmployee, models.RoleUser},
 			"edit":   {models.RoleRoot, models.RoleAdmin, models.RoleEmployee},
