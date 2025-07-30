@@ -1,12 +1,13 @@
 package config
 
 import (
+	"log"
+	"time"
+
 	"Forum_BE/infrastructure"
 	"Forum_BE/models"
 	"Forum_BE/repositories"
 	"Forum_BE/services"
-	"log"
-	"time"
 )
 
 func InitPermissions() {
@@ -133,7 +134,7 @@ func InitPermissions() {
 			"edit":   {models.RoleRoot},
 			"delete": {models.RoleRoot},
 		},
-		"file": {
+		"attachment": {
 			"create": {models.RoleRoot, models.RoleAdmin, models.RoleEmployee, models.RoleUser},
 			"view":   {models.RoleRoot, models.RoleAdmin, models.RoleEmployee, models.RoleUser},
 			"edit":   {models.RoleRoot, models.RoleAdmin, models.RoleEmployee},
