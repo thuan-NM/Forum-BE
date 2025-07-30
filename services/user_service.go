@@ -28,12 +28,11 @@ type UserService interface {
 	GetUserByID(id uint) (*models.User, error)
 	GetUserByUsername(username string) (*models.User, error)
 	GetUserByEmail(email string) (*models.User, error)
-	UpdateUser(id uint, username, email, password, role, status string, emailVerified bool) (*models.User, error)
+	UpdateUser(id uint, updateDTO UpdateUserDTO) (*models.User, error)
 	DeleteUser(id uint) error
 	GetAllUsers(filters map[string]interface{}) ([]models.User, int64, error)
 	ModifyUserStatus(id uint, status string) (*models.User, error)
 }
-
 type userService struct {
 	userRepo    repositories.UserRepository
 	redisClient *redis.Client
@@ -46,6 +45,19 @@ func NewUserService(uRepo repositories.UserRepository, redisClient *redis.Client
 var (
 	emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
 )
+
+type UpdateUserDTO struct {
+	Username      *string `json:"username,omitempty" binding:"omitempty,min=3,max=50"`
+	Email         *string `json:"email,omitempty" binding:"omitempty,email"`
+	Password      *string `json:"password,omitempty" binding:"omitempty,min=6"`
+	Role          *string `json:"role,omitempty" binding:"omitempty,oneof=root admin employee user"`
+	Status        *string `json:"status,omitempty" binding:"omitempty,oneof=active inactive banned"`
+	FullName      *string `json:"full_name,omitempty" binding:"omitempty,min=1,max=100"`
+	Avatar        *string `json:"avatar,omitempty" binding:"omitempty"`
+	Bio           *string `json:"bio,omitempty" binding:"omitempty"`
+	Location      *string `json:"location,omitempty" binding:"omitempty"`
+	EmailVerified *bool   `json:"email_verified,omitempty" binding:"omitempty"`
+}
 
 func (s *userService) CreateUser(username, email, password, fullname string, isVerify bool) (*models.User, error) {
 
@@ -167,92 +179,113 @@ func (s *userService) GetUserByEmail(email string) (*models.User, error) {
 	return user, err
 }
 
-func (s *userService) UpdateUser(id uint, username, email, password, role, status string, emailVerified bool) (*models.User, error) {
+func (s *userService) UpdateUser(id uint, updateDTO UpdateUserDTO) (*models.User, error) {
 	user, err := s.userRepo.GetUserByID(id)
 	if err != nil {
-		slog.Error("Failed to get user", "id", id, "error", err)
+		slog.Error("Không thể lấy thông tin người dùng", "id", id, "error", err)
 		return nil, err
 	}
 
-	if username != "" {
-		existingUser, err := s.userRepo.GetUserByUsername(username)
+	// Kiểm tra và cập nhật username
+	if updateDTO.Username != nil {
+		existingUser, err := s.userRepo.GetUserByUsername(*updateDTO.Username)
 		if err == nil && existingUser != nil && existingUser.ID != id {
-			return nil, fmt.Errorf("username already exists")
+			return nil, fmt.Errorf("tên người dùng đã tồn tại")
 		}
 		if !errors.Is(err, repositories.ErrNotFound) && err != nil {
-			slog.Error("Failed to check username", "username", username, "error", err)
+			slog.Error("Không thể kiểm tra tên người dùng", "username", *updateDTO.Username, "error", err)
 			return nil, err
 		}
-		user.Username = username
+		user.Username = *updateDTO.Username
 	}
 
-	if email != "" {
-		if !emailRegex.MatchString(email) {
+	// Kiểm tra và cập nhật email
+	if updateDTO.Email != nil {
+		if !emailRegex.MatchString(*updateDTO.Email) {
 			return nil, ErrInvalidEmail
 		}
-		existingUser, err := s.userRepo.GetUserByEmail(email)
+		existingUser, err := s.userRepo.GetUserByEmail(*updateDTO.Email)
 		if err == nil && existingUser != nil && existingUser.ID != id {
-			return nil, fmt.Errorf("email already exists")
+			return nil, fmt.Errorf("email đã tồn tại")
 		}
 		if !errors.Is(err, repositories.ErrNotFound) && err != nil {
-			slog.Error("Failed to check email", "email", email, "error", err)
+			slog.Error("Không thể kiểm tra email", "email", *updateDTO.Email, "error", err)
 			return nil, err
 		}
-		user.Email = email
+		user.Email = *updateDTO.Email
 	}
 
-	if password != "" {
-		if len(password) < 6 {
+	// Kiểm tra và cập nhật password
+	if updateDTO.Password != nil {
+		if len(*updateDTO.Password) < 6 {
 			return nil, ErrInvalidPassword
 		}
-		hashedPassword, err := utils.HashPassword(password)
+		hashedPassword, err := utils.HashPassword(*updateDTO.Password)
 		if err != nil {
-			slog.Error("Failed to hash password", "id", id, "error", err)
+			slog.Error("Không thể mã hóa mật khẩu", "id", id, "error", err)
 			return nil, err
 		}
 		user.Password = hashedPassword
 	}
 
-	if role != "" {
-		switch models.Role(role) {
+	// Kiểm tra và cập nhật role
+	if updateDTO.Role != nil {
+		switch models.Role(*updateDTO.Role) {
 		case models.RoleRoot, models.RoleAdmin, models.RoleEmployee, models.RoleUser:
-			user.Role = models.Role(role)
+			user.Role = models.Role(*updateDTO.Role)
 		default:
 			return nil, ErrInvalidRole
 		}
 	}
 
-	if status != "" {
-		switch models.Status(status) {
+	// Kiểm tra và cập nhật status
+	if updateDTO.Status != nil {
+		switch models.Status(*updateDTO.Status) {
 		case models.StatusActive, models.StatusInactive, models.StatusBanned:
-			user.Status = models.Status(status)
+			user.Status = models.Status(*updateDTO.Status)
 		default:
 			return nil, ErrInvalidStatus
 		}
 	}
 
-	user.EmailVerified = emailVerified
+	// Cập nhật các trường khác nếu được cung cấp
+	if updateDTO.FullName != nil {
+		user.FullName = *updateDTO.FullName
+	}
+	if updateDTO.Avatar != nil {
+		user.Avatar = updateDTO.Avatar
+	}
+	if updateDTO.Bio != nil {
+		user.Bio = updateDTO.Bio
+	}
+	if updateDTO.Location != nil {
+		user.Location = updateDTO.Location
+	}
+	if updateDTO.EmailVerified != nil {
+		user.EmailVerified = *updateDTO.EmailVerified
+	}
 
+	// Lưu thông tin người dùng vào cơ sở dữ liệu
 	if err := s.userRepo.UpdateUser(user); err != nil {
-		slog.Error("Failed to update user", "id", id, "error", err)
+		slog.Error("Không thể cập nhật người dùng", "id", id, "error", err)
 		return nil, err
 	}
 
+	// Cập nhật cache
 	if s.redisClient != nil {
 		userJSON, err := json.Marshal(user)
 		if err != nil {
-			slog.Error("Failed to marshal user for caching", "id", user.ID, "error", err)
+			slog.Error("Không thể mã hóa người dùng để lưu cache", "id", user.ID, "error", err)
 		} else {
 			cacheKey := fmt.Sprintf("user:%d", id)
 			if err := s.redisClient.Set(context.Background(), cacheKey, userJSON, 24*time.Hour).Err(); err != nil {
-				slog.Error("Failed to cache user", "cache_key", cacheKey, "error", err)
+				slog.Error("Không thể lưu người dùng vào cache", "cache_key", cacheKey, "error", err)
 			}
 			cacheStatusKey := fmt.Sprintf("user:status:%d", id)
 			if err := s.redisClient.Set(context.Background(), cacheStatusKey, string(user.Status), 1*time.Hour).Err(); err != nil {
-				slog.Error("Failed to cache user status", "cache_key", cacheStatusKey, "error", err)
+				slog.Error("Không thể lưu trạng thái người dùng vào cache", "cache_key", cacheStatusKey, "error", err)
 			}
 		}
-
 		s.invalidateUsersCache(context.Background())
 	}
 

@@ -32,6 +32,9 @@ type User struct {
 	UpdatedAt      time.Time      `json:"updated_at"`
 	DeletedAt      gorm.DeletedAt `gorm:"index" json:"-"`
 	EmailVerified  bool           `json:"email_verified"`
+	PostCount      int64          `gorm:"-" json:"postCount,omitempty"`
+	AnswerCount    int64          `gorm:"-" json:"answerCount,omitempty"`
+	QuestionCount  int64          `gorm:"-" json:"questionCount,omitempty"`
 
 	Posts            []Post         `gorm:"foreignKey:UserID" json:"posts,omitempty"`
 	Questions        []Question     `gorm:"foreignKey:UserID" json:"questions,omitempty"`
@@ -41,7 +44,7 @@ type User struct {
 	Notifications    []Notification `gorm:"foreignKey:UserID" json:"notifications,omitempty"`
 	SentMessages     []Message      `gorm:"foreignKey:FromUserID" json:"sent_messages,omitempty"`
 	ReceivedMessages []Message      `gorm:"foreignKey:ToUserID" json:"received_messages,omitempty"`
-	Attachments      []Attachment   `gorm:"foreignKey:UserID" json:"attachments,omitempty"`
+	Attachments      []Attachment   `json:"attachments,omitempty" gorm:"many2many:user_attachments;"`
 	Following        []UserFollow   `json:"following,omitempty" gorm:"foreignKey:UserID"`
 	Followers        []UserFollow   `json:"followers,omitempty" gorm:"foreignKey:FollowedUserID"`
 }

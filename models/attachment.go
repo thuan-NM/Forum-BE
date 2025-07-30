@@ -8,7 +8,7 @@ import (
 
 type Attachment struct {
 	ID           uint            `gorm:"primaryKey" json:"id"`
-	UserID       uint            `gorm:"index" json:"user_id"`
+	UserID       uint            `gorm:"index;not null" json:"user_id"`
 	URL          string          `gorm:"type:text" json:"url"`
 	ThumbnailURL string          `gorm:"type:text" json:"thumbnail_url,omitempty"`
 	FileName     string          `gorm:"type:varchar(255)" json:"file_name"`

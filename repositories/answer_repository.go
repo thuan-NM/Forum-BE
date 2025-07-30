@@ -38,6 +38,7 @@ func (r *answerRepository) GetAllAnswers(filters map[string]interface{}) ([]mode
 	status, okStatus := filters["status"].(string)
 	page, okPage := filters["page"].(int)
 	limit, okLimit := filters["limit"].(int)
+	user_id, okUserId := filters["user_id"].(uint)
 	if tagfilter, ok := filters["tagfilter"].(uint); ok {
 		query = query.
 			Joins("JOIN answer_tags ON answer_tags.answer_id = answers.id").
@@ -64,7 +65,9 @@ func (r *answerRepository) GetAllAnswers(filters map[string]interface{}) ([]mode
 		search = strings.ToLower(search)
 		query = query.Where("plain_content LIKE ?", "%"+search+"%")
 	}
-
+	if okUserId && user_id != 0 {
+		query = query.Where("user_id = ?", user_id)
+	}
 	var total int64
 	if err := query.Count(&total).Error; err != nil {
 		log.Printf("Error counting answers: %v", err)

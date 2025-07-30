@@ -75,16 +75,21 @@ func (uc *UserController) GetUser(c *gin.Context) {
 func (uc *UserController) UpdateUser(c *gin.Context) {
 	id, err := parseID(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, Response{Message: "Invalid user ID"})
+		c.JSON(http.StatusBadRequest, Response{Message: "ID người dùng không hợp lệ"})
 		return
 	}
 
 	var req struct {
-		Username string `json:"username" binding:"omitempty,min=3,max=50"`
-		Email    string `json:"email" binding:"omitempty,email"`
-		Password string `json:"password" binding:"omitempty,min=6"`
-		Role     string `json:"role" binding:"omitempty,oneof=root admin employee user"`
-		Status   string `json:"status" binding:"omitempty,oneof=active inactive banned"`
+		Username      *string `json:"username,omitempty" binding:"omitempty,min=3,max=50"`
+		Email         *string `json:"email,omitempty" binding:"omitempty,email"`
+		Password      *string `json:"password,omitempty" binding:"omitempty,min=6"`
+		Role          *string `json:"role,omitempty" binding:"omitempty,oneof=root admin employee user"`
+		Status        *string `json:"status,omitempty" binding:"omitempty,oneof=active inactive banned"`
+		FullName      *string `json:"full_name,omitempty" binding:"omitempty,min=1,max=100"`
+		Avatar        *string `json:"avatar,omitempty" binding:"omitempty"`
+		Bio           *string `json:"bio,omitempty" binding:"omitempty"`
+		Location      *string `json:"location,omitempty" binding:"omitempty"`
+		EmailVerified *bool   `json:"email_verified,omitempty" binding:"omitempty"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -92,14 +97,27 @@ func (uc *UserController) UpdateUser(c *gin.Context) {
 		return
 	}
 
-	user, err := uc.userService.UpdateUser(id, req.Username, req.Email, req.Password, req.Role, req.Status, true)
+	updateDTO := services.UpdateUserDTO{
+		Username:      req.Username,
+		Email:         req.Email,
+		Password:      req.Password,
+		Role:          req.Role,
+		Status:        req.Status,
+		FullName:      req.FullName,
+		Avatar:        req.Avatar,
+		Bio:           req.Bio,
+		Location:      req.Location,
+		EmailVerified: req.EmailVerified,
+	}
+
+	user, err := uc.userService.UpdateUser(id, updateDTO)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, Response{Message: err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, Response{
-		Message: "User updated successfully",
+		Message: "Cập nhật người dùng thành công",
 		Data:    responses.ToUserResponse(user),
 	})
 }
@@ -152,7 +170,6 @@ func (uc *UserController) GetAllUsers(c *gin.Context) {
 		"users": responseUsers,
 		"total": total,
 	})
-
 }
 
 func (uc *UserController) ModifyUserStatus(c *gin.Context) {

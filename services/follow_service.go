@@ -24,6 +24,8 @@ type FollowService interface {
 	GetQuestionFollows(questionID uint) ([]models.QuestionFollow, error)
 	GetUserFollows(userID uint) ([]models.UserFollow, error)
 	GetFollowedTopics(userID uint) ([]models.Topic, error)
+	GetFollowedUsers(userID uint) ([]models.User, error)
+	GetFollowingUsers(userID uint) ([]models.User, error)
 	GetQuestionFollowStatus(userID uint, questionID uint) (bool, error)
 	GetTopicFollowStatus(userID uint, topicID uint) (bool, error)
 	GetUserFollowStatus(userID uint, followedUserID uint) (bool, error)
@@ -517,7 +519,90 @@ func (s *followService) GetFollowedTopics(userID uint) ([]models.Topic, error) {
 
 	return topics, nil
 }
+func (s *followService) GetFollowedUsers(userID uint) ([]models.User, error) {
+	cacheKey := fmt.Sprintf("followed_users:user:%d", userID)
+	ctx := context.Background()
 
+	cached, err := s.redisClient.Get(ctx, cacheKey).Result()
+	if err == nil {
+		var users []models.User
+		if err := json.Unmarshal([]byte(cached), &users); err == nil {
+			log.Printf("Cache hit for followed_users:user:%d", userID)
+			return users, nil
+		}
+	}
+	if err != redis.Nil {
+		log.Printf("Redis error for followed_users:user:%d: %v", userID, err)
+	}
+
+	var userFollows []models.UserFollow
+	if err := s.db.Where("followed_user_id = ?", userID).Find(&userFollows).Error; err != nil {
+		return nil, err
+	}
+
+	var userIDs []uint
+	for _, follow := range userFollows {
+		userIDs = append(userIDs, follow.UserID)
+	}
+
+	var users []models.User
+	if len(userIDs) > 0 {
+		if err := s.db.Find(&users, userIDs).Error; err != nil {
+			return nil, err
+		}
+	}
+
+	data, err := json.Marshal(users)
+	if err == nil {
+		if err := s.redisClient.Set(ctx, cacheKey, data, 2*time.Minute).Err(); err != nil {
+			log.Printf("Failed to set cache for followed_users:user:%d: %v", userID, err)
+		}
+	}
+
+	return users, nil
+}
+func (s *followService) GetFollowingUsers(userID uint) ([]models.User, error) {
+	cacheKey := fmt.Sprintf("following_users:user:%d", userID)
+	ctx := context.Background()
+
+	cached, err := s.redisClient.Get(ctx, cacheKey).Result()
+	if err == nil {
+		var users []models.User
+		if err := json.Unmarshal([]byte(cached), &users); err == nil {
+			log.Printf("Cache hit for followed_users:user:%d", userID)
+			return users, nil
+		}
+	}
+	if err != redis.Nil {
+		log.Printf("Redis error for followed_users:user:%d: %v", userID, err)
+	}
+
+	var userFollows []models.UserFollow
+	if err := s.db.Where("user_id = ?", userID).Find(&userFollows).Error; err != nil {
+		return nil, err
+	}
+
+	var userIDs []uint
+	for _, follow := range userFollows {
+		userIDs = append(userIDs, follow.FollowedUserID)
+	}
+
+	var users []models.User
+	if len(userIDs) > 0 {
+		if err := s.db.Find(&users, userIDs).Error; err != nil {
+			return nil, err
+		}
+	}
+
+	data, err := json.Marshal(users)
+	if err == nil {
+		if err := s.redisClient.Set(ctx, cacheKey, data, 2*time.Minute).Err(); err != nil {
+			log.Printf("Failed to set cache for followed_users:user:%d: %v", userID, err)
+		}
+	}
+
+	return users, nil
+}
 func (s *followService) invalidateCache(pattern string) {
 	ctx := context.Background()
 	keys, err := s.redisClient.Keys(ctx, pattern).Result()

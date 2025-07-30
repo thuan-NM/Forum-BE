@@ -21,6 +21,7 @@ type QuestionService interface {
 	ListQuestions(filters map[string]interface{}) ([]models.Question, int, error)
 	UpdateQuestionStatus(id uint, status string) (*models.Question, error)
 	UpdateInteractionStatus(id uint, status models.InteractionStatus, userID uint) (*models.Question, error)
+	GetAllQuestion(filters map[string]interface{}) ([]models.Question, int, error)
 }
 
 type questionService struct {
@@ -153,7 +154,7 @@ func (s *questionService) DeleteQuestion(id uint) error {
 }
 
 func (s *questionService) ListQuestions(filters map[string]interface{}) ([]models.Question, int, error) {
-	cacheKey := utils.GenerateCacheKey("questions:all", 0, filters)
+	cacheKey := utils.GenerateCacheKey("questions:list", 0, filters)
 	ctx := context.Background()
 
 	cached, err := s.redisClient.Get(ctx, cacheKey).Result()
@@ -199,7 +200,49 @@ func (s *questionService) ListQuestions(filters map[string]interface{}) ([]model
 
 	return questions, total, nil
 }
+func (s *questionService) GetAllQuestion(filters map[string]interface{}) ([]models.Question, int, error) {
+	cacheKey := utils.GenerateCacheKey("questions:all", 0, filters)
+	ctx := context.Background()
 
+	cached, err := s.redisClient.Get(ctx, cacheKey).Result()
+	if err == nil {
+		var cachedData struct {
+			Questions []models.Question
+			Total     int
+		}
+		if err := json.Unmarshal([]byte(cached), &cachedData); err == nil {
+			log.Printf("Cache hit for %s", cacheKey)
+			return cachedData.Questions, cachedData.Total, nil
+		}
+	}
+	if err != redis.Nil {
+		log.Printf("Redis error for %s: %v", cacheKey, err)
+	}
+
+	var questions []models.Question
+	var total int
+	questions, total, err = s.questionRepo.GetAllQuestion(filters)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	cacheData := struct {
+		Questions []models.Question
+		Total     int
+	}{Questions: questions, Total: total}
+	data, err := json.Marshal(cacheData)
+	if err == nil {
+		if err := s.redisClient.Set(ctx, cacheKey, data, 2*time.Minute).Err(); err != nil {
+			log.Printf("Failed to set cache for %s: %v", cacheKey, err)
+		} else {
+			log.Printf("Cache set for %s with %d questions", cacheKey, len(questions))
+		}
+	} else {
+		log.Printf("Failed to marshal questions for cache: %v", err)
+	}
+
+	return questions, total, nil
+}
 func (s *questionService) UpdateQuestionStatus(id uint, status string) (*models.Question, error) {
 	if status != string(models.StatusApproved) && status != string(models.StatusPending) && status != string(models.StatusRejected) {
 		return nil, fmt.Errorf("invalid question status")

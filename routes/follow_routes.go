@@ -37,5 +37,7 @@ func FollowRoutes(db *gorm.DB, authorized *gin.RouterGroup, permService services
 		follows.GET("/users/:id/status", middlewares.CheckPermission(permService, "follow", "view"), followController.GetUserFollowStatus)
 
 		follows.GET("/me/topics", middlewares.CheckPermission(permService, "follow", "view"), followController.GetFollowedTopics)
+		follows.GET("/me/user/following", middlewares.CheckPermission(permService, "follow", "view"), followController.GetFollowingUsers)
+		follows.GET("/me/user/followed", middlewares.CheckPermission(permService, "follow", "view"), followController.GetFollowedUsers)
 	}
 }

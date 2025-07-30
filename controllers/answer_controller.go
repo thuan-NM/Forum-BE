@@ -181,6 +181,13 @@ func (ac *AnswerController) GetAllAnswers(c *gin.Context) {
 	if questiontitle := c.Query("questiontitle"); questiontitle != "" {
 		filters["questiontitle"] = questiontitle
 	}
+	userID := c.Query("user_id")
+	if userID != "" {
+		uID, err := strconv.ParseUint(userID, 10, 64)
+		if err == nil {
+			filters["user_id"] = uint(uID)
+		}
+	}
 	if page := c.Query("page"); page != "" {
 		if p, err := strconv.Atoi(page); err == nil {
 			filters["page"] = p

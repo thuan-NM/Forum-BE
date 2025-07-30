@@ -50,7 +50,9 @@ func GenerateCacheKey(prefix string, id uint, filters map[string]interface{}) st
 	}
 	if typefilter, ok := filters["typefilter"]; ok {
 		key += fmt.Sprintf("typefilter:%v:", typefilter)
-
+	}
+	if author, ok := filters["author"]; ok {
+		key += fmt.Sprintf("author:%v:", author)
 	}
 	return key
 }

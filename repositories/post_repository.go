@@ -5,7 +5,6 @@ import (
 	"Forum_BE/utils"
 	"gorm.io/gorm"
 	"log"
-	"strings"
 	"time"
 )
 
@@ -13,7 +12,7 @@ type PostRepository interface {
 	CreatePost(post *models.Post, tagIds []uint) error
 	GetPostByID(id uint) (*models.Post, error)
 	GetPostByIDSimple(id uint) (*models.Post, error)
-	UpdatePost(post *models.Post, tagNames []string) error
+	UpdatePost(post *models.Post, tagId []uint) error
 	UpdatePostStatus(id uint, status string) error
 	DeletePost(id uint) error
 	List(filters map[string]interface{}) ([]models.Post, int, error)
@@ -74,7 +73,7 @@ func (r *postRepository) GetPostByIDSimple(id uint) (*models.Post, error) {
 	return &post, nil
 }
 
-func (r *postRepository) UpdatePost(post *models.Post, tagNames []string) error {
+func (r *postRepository) UpdatePost(post *models.Post, tagId []uint) error {
 	post.PlainContent = utils.StripHTML(post.Content)
 	tx := r.db.Begin()
 	if err := tx.Error; err != nil {
@@ -86,25 +85,13 @@ func (r *postRepository) UpdatePost(post *models.Post, tagNames []string) error 
 		return err
 	}
 
-	if len(tagNames) > 0 {
-		if err := tx.Model(post).Association("Tags").Clear(); err != nil {
+	if len(tagId) > 0 {
+		var tags []models.Tag
+		if err := tx.Where("id IN ?", tagId).Find(&tags).Error; err != nil {
 			tx.Rollback()
 			return err
 		}
-		var tags []models.Tag
-		for _, name := range tagNames {
-			name = strings.TrimSpace(strings.ToLower(name))
-			if name == "" {
-				continue
-			}
-			var tag models.Tag
-			if err := tx.Where("name = ?", name).FirstOrCreate(&tag, models.Tag{Name: name}).Error; err != nil {
-				tx.Rollback()
-				return err
-			}
-			tags = append(tags, tag)
-		}
-		if err := tx.Model(post).Association("Tags").Append(tags); err != nil {
+		if err := tx.Model(post).Association("Tags").Replace(tags); err != nil {
 			tx.Rollback()
 			return err
 		}
@@ -176,6 +163,9 @@ func (r *postRepository) GetAllPosts(filters map[string]interface{}) ([]models.P
 	// Process filters
 	if search, ok := filters["search"].(string); ok && search != "" {
 		query = query.Where("LOWER(title) LIKE LOWER(?)", "%"+search+"%")
+	}
+	if user_id, ok := filters["user_id"].(uint); ok {
+		query = query.Where("user_id = ?", user_id)
 	}
 	if status, ok := filters["status"].(string); ok && status != "" {
 		query = query.Where("status = ?", status)

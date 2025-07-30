@@ -22,6 +22,9 @@ type UserResponse struct {
 	CreatedAt      string  `json:"createdAt"`
 	UpdatedAt      string  `json:"updatedAt"`
 	EmailVerified  bool    `json:"emailVerified"`
+	PostCount      int64   `json:"postCount"`
+	AnswerCount    int64   `json:"answerCount"`
+	QuestionCount  int64   `json:"questionCount"`
 }
 
 func ToUserResponse(user *models.User) UserResponse {
@@ -48,5 +51,8 @@ func ToUserResponse(user *models.User) UserResponse {
 		CreatedAt:      user.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:      user.UpdatedAt.Format(time.RFC3339),
 		EmailVerified:  user.EmailVerified,
+		PostCount:      user.PostCount,
+		AnswerCount:    user.AnswerCount,
+		QuestionCount:  user.QuestionCount,
 	}
 }

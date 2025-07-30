@@ -90,10 +90,10 @@ func (pc *PostController) UpdatePost(c *gin.Context) {
 	}
 
 	var req struct {
-		Title   string   `json:"title"`
-		Content string   `json:"content"`
-		Status  string   `json:"status"`
-		Tags    []string `json:"tags"`
+		Title   string `json:"title"`
+		Content string `json:"content" binding:"required"`
+		Status  string `json:"status"`
+		Tags    []uint `json:"tags"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -202,6 +202,11 @@ func (pc *PostController) GetAllPosts(c *gin.Context) {
 	if page := c.Query("page"); page != "" {
 		if p, err := strconv.Atoi(page); err == nil && p > 0 {
 			filters["page"] = p
+		}
+	}
+	if userID := c.Query("user_id"); userID != "" {
+		if uID, err := strconv.ParseUint(userID, 10, 64); err == nil {
+			filters["user_id"] = uint(uID)
 		}
 	}
 	//if tagfilter := c.Query("tagfilter"); tagfilter != "" {

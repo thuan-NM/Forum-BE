@@ -163,6 +163,55 @@ func (qc *QuestionController) ListQuestions(c *gin.Context) {
 	})
 }
 
+func (qc *QuestionController) GetAllQuestion(c *gin.Context) {
+	filters := make(map[string]interface{})
+	if userID := c.Query("user_id"); userID != "" {
+		if uID, err := strconv.ParseUint(userID, 10, 64); err == nil {
+			filters["user_id"] = uint(uID)
+		}
+	}
+
+	if search := c.Query("search"); search != "" {
+		filters["title_search"] = search
+	}
+	if status := c.Query("status"); status != "" {
+		filters["status"] = status
+	}
+	if interstatus := c.Query("interstatus"); interstatus != "" {
+		filters["interstatus"] = interstatus
+	}
+	if topicID := c.Query("topic_id"); topicID != "" {
+		if id, err := strconv.ParseUint(topicID, 10, 64); err == nil {
+			filters["topic_id"] = uint(id)
+		}
+	}
+	if page := c.Query("page"); page != "" {
+		if p, err := strconv.Atoi(page); err == nil {
+			filters["page"] = p
+		}
+	}
+	if limit := c.Query("limit"); limit != "" {
+		if l, err := strconv.Atoi(limit); err == nil {
+			filters["limit"] = l
+		}
+	}
+
+	questions, total, err := qc.questionService.GetAllQuestion(filters)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể liệt kê danh sách câu hỏi"})
+		return
+	}
+
+	var responseQuestions []responses.QuestionResponse
+	for _, question := range questions {
+		responseQuestions = append(responseQuestions, responses.ToQuestionResponse(&question))
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"questions": responseQuestions,
+		"total":     total,
+	})
+}
 func (qc *QuestionController) UpdateQuestionStatus(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)

@@ -232,6 +232,38 @@ func (fc *FollowController) GetUserFollows(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"follows": follows})
 }
 
+func (fc *FollowController) GetFollowedUsers(c *gin.Context) {
+	userID := c.GetUint("user_id")
+
+	users, err := fc.followService.GetFollowedUsers(userID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	var responseUsers []responses.UserResponse
+	for _, user := range users {
+		responseUsers = append(responseUsers, responses.ToUserResponse(&user))
+	}
+
+	c.JSON(http.StatusOK, gin.H{"users": responseUsers})
+}
+func (fc *FollowController) GetFollowingUsers(c *gin.Context) {
+	userID := c.GetUint("user_id")
+
+	users, err := fc.followService.GetFollowingUsers(userID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	var responseUsers []responses.UserResponse
+	for _, user := range users {
+		responseUsers = append(responseUsers, responses.ToUserResponse(&user))
+	}
+
+	c.JSON(http.StatusOK, gin.H{"users": responseUsers})
+}
 func (fc *FollowController) GetFollowedTopics(c *gin.Context) {
 	userID := c.GetUint("user_id")
 
