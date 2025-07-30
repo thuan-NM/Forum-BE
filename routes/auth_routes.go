@@ -6,9 +6,11 @@ import (
 	"Forum_BE/services"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
+	"github.com/go-redis/redis/v8"
 	"gorm.io/gorm"
 )
 
+func AuthRoutes(r *gin.Engine, db *gorm.DB, jwtSecret string, redisClient *redis.Client) {
 func AuthRoutes(r *gin.Engine, db *gorm.DB, jwtSecret string, redisClient *redis.Client) {
 	userRepo := repositories.NewUserRepository(db)
 	userService := services.NewUserService(userRepo, redisClient)

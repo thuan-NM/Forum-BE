@@ -7,6 +7,7 @@ import (
 	"Forum_BE/utils"
 	"github.com/gin-gonic/gin"
 	"log"
+	"log"
 	"net/http"
 	"strings"
 )
@@ -26,6 +27,11 @@ func (ac *AuthController) Register(c *gin.Context) {
 		Password      string `json:"password" binding:"required,min=6"`
 		FullName      string `json:"fullName" binding:"required"`
 		EmailVerified bool   `json:"emailVerified"  default:"false"`
+		Username      string `json:"username" binding:"required"`
+		Email         string `json:"email" binding:"required,email"`
+		Password      string `json:"password" binding:"required,min=6"`
+		FullName      string `json:"fullName" binding:"required"`
+		EmailVerified bool   `json:"emailVerified"  default:"false"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -33,6 +39,7 @@ func (ac *AuthController) Register(c *gin.Context) {
 		return
 	}
 
+	user, err := ac.authService.Register(req.Username, req.Email, req.Password, req.FullName, req.EmailVerified)
 	user, err := ac.authService.Register(req.Username, req.Email, req.Password, req.FullName, req.EmailVerified)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -66,8 +73,35 @@ func (ac *AuthController) Login(c *gin.Context) {
 		"message": "Login successful",
 		"token":   token,
 		"user":    responses.ToUserResponse(user),
+		"user":    responses.ToUserResponse(user),
 	})
 }
+
+func (ac *AuthController) Logout(c *gin.Context) {
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header missing"})
+		c.Abort()
+		return
+	}
+
+	tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+	claims, err := utils.ParseJWT(tokenString, config.LoadConfig().JWTSecret)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+		return
+	}
+
+	userID := claims.UserID
+
+	if err := ac.authService.Logout(userID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to logout"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Logout successful"})
+}
+
 
 func (ac *AuthController) Logout(c *gin.Context) {
 	authHeader := c.GetHeader("Authorization")
@@ -108,6 +142,7 @@ func (ac *AuthController) ResetToken(c *gin.Context) {
 		return
 	}
 
+	userID := claims.UserID
 	userID := claims.UserID
 
 	newToken, err := ac.authService.ResetToken(userID)

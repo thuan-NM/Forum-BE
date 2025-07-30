@@ -15,7 +15,9 @@ import (
 
 type QuestionService interface {
 	CreateQuestion(title string, description string, userID, topicID uint) (*models.Question, error)
+	CreateQuestion(title string, description string, userID, topicID uint) (*models.Question, error)
 	GetQuestionByID(id uint) (*models.Question, error)
+	UpdateQuestion(id uint, title string, description string, topicID uint) (*models.Question, error)
 	UpdateQuestion(id uint, title string, description string, topicID uint) (*models.Question, error)
 	DeleteQuestion(id uint) error
 	ListQuestions(filters map[string]interface{}) ([]models.Question, int, error)
@@ -35,11 +37,18 @@ func NewQuestionService(qRepo repositories.QuestionRepository, tService TopicSer
 }
 
 func (s *questionService) CreateQuestion(title string, description string, userID, topicID uint) (*models.Question, error) {
+func (s *questionService) CreateQuestion(title string, description string, userID, topicID uint) (*models.Question, error) {
 	if title == "" {
 		return nil, fmt.Errorf("title is required")
 	}
 
 	question := &models.Question{
+		Title:             title,
+		Description:       description,
+		UserID:            userID,
+		TopicID:           topicID,
+		Status:            models.StatusPending,
+		InteractionStatus: models.InteractionOpened,
 		Title:             title,
 		Description:       description,
 		UserID:            userID,
@@ -56,6 +65,9 @@ func (s *questionService) CreateQuestion(title string, description string, userI
 	if topicID == 0 {
 		s.suggestTopicForQuestion(question)
 	}
+	if topicID == 0 {
+		s.suggestTopicForQuestion(question)
+	}
 
 	s.invalidateCache("questions:*")
 
@@ -63,18 +75,27 @@ func (s *questionService) CreateQuestion(title string, description string, userI
 }
 
 func (s *questionService) suggestTopicForQuestion(question *models.Question) {
+func (s *questionService) suggestTopicForQuestion(question *models.Question) {
 	keywords := strings.Split(strings.ToLower(question.Title), " ")
 	for _, keyword := range keywords {
+		if len(keyword) < 3 {
 		if len(keyword) < 3 {
 			continue
 		}
 		topic, err := s.topicService.GetTopicByName(keyword)
+		topic, err := s.topicService.GetTopicByName(keyword)
 		if err != nil && err.Error() == "topic not found" {
+			topic, err = s.topicService.CreateTopic(keyword, "Auto-generated topic from question")
 			topic, err = s.topicService.CreateTopic(keyword, "Auto-generated topic from question")
 			if err != nil {
 				log.Printf("Failed to suggest topic %s for question %d: %v", keyword, question.ID, err)
 				continue
 			}
+			question.TopicID = topic.ID
+			if err := s.questionRepo.UpdateQuestion(question); err != nil {
+				log.Printf("Failed to update question %d with topic %d: %v", question.ID, topic.ID, err)
+			}
+			break
 			question.TopicID = topic.ID
 			if err := s.questionRepo.UpdateQuestion(question); err != nil {
 				log.Printf("Failed to update question %d with topic %d: %v", question.ID, topic.ID, err)
@@ -87,6 +108,7 @@ func (s *questionService) suggestTopicForQuestion(question *models.Question) {
 func (s *questionService) GetQuestionByID(id uint) (*models.Question, error) {
 	cacheKey := fmt.Sprintf("question:%d", id)
 	ctx := context.Background()
+
 
 	cached, err := s.redisClient.Get(ctx, cacheKey).Result()
 	if err == nil {
@@ -116,6 +138,7 @@ func (s *questionService) GetQuestionByID(id uint) (*models.Question, error) {
 }
 
 func (s *questionService) UpdateQuestion(id uint, title string, description string, topicID uint) (*models.Question, error) {
+func (s *questionService) UpdateQuestion(id uint, title string, description string, topicID uint) (*models.Question, error) {
 	question, err := s.questionRepo.GetQuestionByID(id)
 	if err != nil {
 		return nil, err
@@ -123,6 +146,10 @@ func (s *questionService) UpdateQuestion(id uint, title string, description stri
 
 	if title != "" {
 		question.Title = title
+	}
+	question.Description = description
+	if topicID != 0 {
+		question.TopicID = topicID
 	}
 	question.Description = description
 	if topicID != 0 {
@@ -157,6 +184,7 @@ func (s *questionService) ListQuestions(filters map[string]interface{}) ([]model
 	cacheKey := utils.GenerateCacheKey("questions:list", 0, filters)
 	ctx := context.Background()
 
+
 	cached, err := s.redisClient.Get(ctx, cacheKey).Result()
 	if err == nil {
 		var cachedData struct {
@@ -164,7 +192,13 @@ func (s *questionService) ListQuestions(filters map[string]interface{}) ([]model
 			Total     int
 		}
 		if err := json.Unmarshal([]byte(cached), &cachedData); err == nil {
+		var cachedData struct {
+			Questions []models.Question
+			Total     int
+		}
+		if err := json.Unmarshal([]byte(cached), &cachedData); err == nil {
 			log.Printf("Cache hit for %s", cacheKey)
+			return cachedData.Questions, cachedData.Total, nil
 			return cachedData.Questions, cachedData.Total, nil
 		}
 	}
@@ -179,7 +213,15 @@ func (s *questionService) ListQuestions(filters map[string]interface{}) ([]model
 	} else {
 		questions, total, err = s.questionRepo.ListQuestions(filters)
 	}
+	var questions []models.Question
+	var total int
+	if userID, ok := filters["user_id"].(uint); ok && userID != 0 {
+		questions, total, err = s.questionRepo.ListQuestionsExcludingPassed(filters)
+	} else {
+		questions, total, err = s.questionRepo.ListQuestions(filters)
+	}
 	if err != nil {
+		return nil, 0, err
 		return nil, 0, err
 	}
 
@@ -256,6 +298,9 @@ func (s *questionService) UpdateQuestionStatus(id uint, status string) (*models.
 	updatedQuestion, err := s.questionRepo.GetQuestionByIDMinimal(id)
 	if err != nil {
 		log.Printf("Failed to get updated question %d: %v", id, err)
+	updatedQuestion, err := s.questionRepo.GetQuestionByIDMinimal(id)
+	if err != nil {
+		log.Printf("Failed to get updated question %d: %v", id, err)
 		return nil, err
 	}
 
@@ -263,8 +308,16 @@ func (s *questionService) UpdateQuestionStatus(id uint, status string) (*models.
 	s.invalidateCache("questions:*")
 
 	return updatedQuestion, nil
+	return updatedQuestion, nil
 }
 
+func (s *questionService) UpdateInteractionStatus(id uint, status models.InteractionStatus, userID uint) (*models.Question, error) {
+	if status != models.InteractionOpened && status != models.InteractionSolved && status != models.InteractionClosed {
+		return nil, fmt.Errorf("trạng thái tương tác không hợp lệ")
+	}
+
+	if err := s.questionRepo.UpdateInteractionStatus(id, string(status)); err != nil {
+		log.Printf("Failed to update interaction status for question %d: %v", id, err)
 func (s *questionService) UpdateInteractionStatus(id uint, status models.InteractionStatus, userID uint) (*models.Question, error) {
 	if status != models.InteractionOpened && status != models.InteractionSolved && status != models.InteractionClosed {
 		return nil, fmt.Errorf("trạng thái tương tác không hợp lệ")
@@ -278,12 +331,16 @@ func (s *questionService) UpdateInteractionStatus(id uint, status models.Interac
 	updatedQuestion, err := s.questionRepo.GetQuestionByIDMinimal(id)
 	if err != nil {
 		log.Printf("Failed to get updated question %d: %v", id, err)
+	updatedQuestion, err := s.questionRepo.GetQuestionByIDMinimal(id)
+	if err != nil {
+		log.Printf("Failed to get updated question %d: %v", id, err)
 		return nil, err
 	}
 
 	s.invalidateCache(fmt.Sprintf("question:%d", id))
 	s.invalidateCache("questions:*")
 
+	return updatedQuestion, nil
 	return updatedQuestion, nil
 }
 

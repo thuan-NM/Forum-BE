@@ -34,6 +34,12 @@ func ToUserResponse(user *models.User) UserResponse {
 		lastLogin = &formatted
 	}
 
+	var lastLogin *string
+	if user.LastLogin != nil {
+		formatted := user.LastLogin.Format(time.RFC3339)
+		lastLogin = &formatted
+	}
+
 	return UserResponse{
 		ID:             user.ID,
 		Username:       user.Username,

@@ -2,14 +2,22 @@ package controllers
 
 import (
 	"Forum_BE/repositories" // Add this import
+	"Forum_BE/repositories" // Add this import
 	"Forum_BE/responses"
 	"Forum_BE/services"
+	"errors"
+	"fmt"
 	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"strconv"
 )
+
+type Response struct {
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
 
 type Response struct {
 	Message string      `json:"message"`
@@ -31,19 +39,30 @@ func (uc *UserController) CreateUser(c *gin.Context) {
 		Password      string `json:"password" binding:"required,min=6"`
 		FullName      string `json:"full_name" binding:"required"`
 		EmailVerified bool   `json:"emailVerified" binding:"required" default:"false"`
+		Username      string `json:"username" binding:"required"`
+		Email         string `json:"email" binding:"required,email"`
+		Password      string `json:"password" binding:"required,min=6"`
+		FullName      string `json:"full_name" binding:"required"`
+		EmailVerified bool   `json:"emailVerified" binding:"required" default:"false"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, Response{Message: err.Error()})
 		c.JSON(http.StatusBadRequest, Response{Message: err.Error()})
 		return
 	}
 
 	user, err := uc.userService.CreateUser(req.Username, req.Email, req.Password, req.FullName, req.EmailVerified)
+	user, err := uc.userService.CreateUser(req.Username, req.Email, req.Password, req.FullName, req.EmailVerified)
 	if err != nil {
+		c.JSON(http.StatusBadRequest, Response{Message: err.Error()})
 		c.JSON(http.StatusBadRequest, Response{Message: err.Error()})
 		return
 	}
 
+	c.JSON(http.StatusCreated, Response{
+		Message: "User created successfully",
+		Data:    responses.ToUserResponse(user),
 	c.JSON(http.StatusCreated, Response{
 		Message: "User created successfully",
 		Data:    responses.ToUserResponse(user),
@@ -52,13 +71,21 @@ func (uc *UserController) CreateUser(c *gin.Context) {
 
 func (uc *UserController) GetUser(c *gin.Context) {
 	id, err := parseID(c.Param("id"))
+	id, err := parseID(c.Param("id"))
 	if err != nil {
+		c.JSON(http.StatusBadRequest, Response{Message: "Invalid user ID"})
 		c.JSON(http.StatusBadRequest, Response{Message: "Invalid user ID"})
 		return
 	}
 
 	user, err := uc.userService.GetUserByID(id)
+	user, err := uc.userService.GetUserByID(id)
 	if err != nil {
+		if errors.Is(err, repositories.ErrNotFound) { // Use repositories.ErrNotFound
+			c.JSON(http.StatusNotFound, Response{Message: "User not found"})
+		} else {
+			c.JSON(http.StatusInternalServerError, Response{Message: "Failed to fetch user"})
+		}
 		if errors.Is(err, repositories.ErrNotFound) { // Use repositories.ErrNotFound
 			c.JSON(http.StatusNotFound, Response{Message: "User not found"})
 		} else {
@@ -69,10 +96,13 @@ func (uc *UserController) GetUser(c *gin.Context) {
 
 	c.JSON(http.StatusOK, Response{
 		Data: responses.ToUserResponse(user),
+	c.JSON(http.StatusOK, Response{
+		Data: responses.ToUserResponse(user),
 	})
 }
 
 func (uc *UserController) UpdateUser(c *gin.Context) {
+	id, err := parseID(c.Param("id"))
 	id, err := parseID(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, Response{Message: "ID người dùng không hợp lệ"})
@@ -94,6 +124,7 @@ func (uc *UserController) UpdateUser(c *gin.Context) {
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, Response{Message: err.Error()})
+		c.JSON(http.StatusBadRequest, Response{Message: err.Error()})
 		return
 	}
 
@@ -113,6 +144,7 @@ func (uc *UserController) UpdateUser(c *gin.Context) {
 	user, err := uc.userService.UpdateUser(id, updateDTO)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, Response{Message: err.Error()})
+		c.JSON(http.StatusBadRequest, Response{Message: err.Error()})
 		return
 	}
 
@@ -124,7 +156,9 @@ func (uc *UserController) UpdateUser(c *gin.Context) {
 
 func (uc *UserController) DeleteUser(c *gin.Context) {
 	id, err := parseID(c.Param("id"))
+	id, err := parseID(c.Param("id"))
 	if err != nil {
+		c.JSON(http.StatusBadRequest, Response{Message: "Invalid user ID"})
 		c.JSON(http.StatusBadRequest, Response{Message: "Invalid user ID"})
 		return
 	}
@@ -135,9 +169,16 @@ func (uc *UserController) DeleteUser(c *gin.Context) {
 		} else {
 			c.JSON(http.StatusInternalServerError, Response{Message: "Failed to delete user"})
 		}
+	if err := uc.userService.DeleteUser(id); err != nil {
+		if errors.Is(err, repositories.ErrNotFound) { // Use repositories.ErrNotFound
+			c.JSON(http.StatusNotFound, Response{Message: "User not found"})
+		} else {
+			c.JSON(http.StatusInternalServerError, Response{Message: "Failed to delete user"})
+		}
 		return
 	}
 
+	c.JSON(http.StatusOK, Response{Message: "User deleted successfully"})
 	c.JSON(http.StatusOK, Response{Message: "User deleted successfully"})
 }
 
@@ -157,7 +198,24 @@ func (uc *UserController) GetAllUsers(c *gin.Context) {
 		}
 	}
 	users, total, err := uc.userService.GetAllUsers(filters)
+func (uc *UserController) GetAllUsers(c *gin.Context) {
+	filters := make(map[string]interface{})
+	if search := c.Query("search"); search != "" {
+		filters["search"] = search
+	}
+	if page := c.Query("page"); page != "" {
+		if p, err := strconv.Atoi(page); err == nil {
+			filters["page"] = p
+		}
+	}
+	if limit := c.Query("limit"); limit != "" {
+		if l, err := strconv.Atoi(limit); err == nil {
+			filters["limit"] = l
+		}
+	}
+	users, total, err := uc.userService.GetAllUsers(filters)
 	if err != nil {
+		c.JSON(http.StatusInternalServerError, Response{Message: "Failed to get all users"})
 		c.JSON(http.StatusInternalServerError, Response{Message: "Failed to get all users"})
 		return
 	}
@@ -168,6 +226,7 @@ func (uc *UserController) GetAllUsers(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"users": responseUsers,
+		"total": total,
 		"total": total,
 	})
 }

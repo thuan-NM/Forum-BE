@@ -36,6 +36,15 @@ func GenerateCacheKey(prefix string, id uint, filters map[string]interface{}) st
 	if topicID, ok := filters["topic_id"]; ok {
 		key += fmt.Sprintf("topic_id:%v:", topicID)
 	}
+	if answerID, ok := filters["answer_id"]; ok {
+		key += fmt.Sprintf("answer:%v:", answerID)
+	}
+	if postID, ok := filters["post_id"]; ok {
+		key += fmt.Sprintf("post:%v:", postID)
+	}
+	if topicID, ok := filters["topic_id"]; ok {
+		key += fmt.Sprintf("topic_id:%v:", topicID)
+	}
 	if sort, ok := filters["sort"]; ok {
 		key += fmt.Sprintf("sort:%v:", sort)
 	}

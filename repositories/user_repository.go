@@ -3,6 +3,7 @@ package repositories
 import (
 	"Forum_BE/models"
 	"errors"
+	"errors"
 	"gorm.io/gorm"
 	"log/slog"
 )
@@ -41,6 +42,9 @@ func (r *userRepository) GetUserByID(id uint) (*models.User, error) {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrNotFound
 		}
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrNotFound
+		}
 		return nil, err
 	}
 
@@ -67,7 +71,11 @@ func (r *userRepository) GetUserByID(id uint) (*models.User, error) {
 func (r *userRepository) GetUserByUsername(username string) (*models.User, error) {
 	var user models.User
 	err := r.db.Where("username = ? AND deleted_at IS NULL", username).First(&user).Error
+	err := r.db.Where("username = ? AND deleted_at IS NULL", username).First(&user).Error
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrNotFound
+		}
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrNotFound
 		}
@@ -79,7 +87,11 @@ func (r *userRepository) GetUserByUsername(username string) (*models.User, error
 func (r *userRepository) GetUserByEmail(email string) (*models.User, error) {
 	var user models.User
 	err := r.db.Where("email = ? AND deleted_at IS NULL", email).First(&user).Error
+	err := r.db.Where("email = ? AND deleted_at IS NULL", email).First(&user).Error
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrNotFound
+		}
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrNotFound
 		}
@@ -96,6 +108,7 @@ func (r *userRepository) DeleteUser(id uint) error {
 	return r.db.Delete(&models.User{}, id).Error
 }
 
+func (r *userRepository) GetAllUsers(filters map[string]interface{}) ([]models.User, int64, error) {
 func (r *userRepository) GetAllUsers(filters map[string]interface{}) ([]models.User, int64, error) {
 	var users []models.User
 	var total int64

@@ -13,6 +13,14 @@ const (
 	StatusBanned   Status = "banned"
 )
 
+type Status string
+
+const (
+	StatusActive   Status = "active"
+	StatusInactive Status = "inactive"
+	StatusBanned   Status = "banned"
+)
+
 type User struct {
 	ID             uint           `gorm:"primaryKey" json:"id"`
 	Username       string         `gorm:"unique;not null;index;size:50" json:"username"`

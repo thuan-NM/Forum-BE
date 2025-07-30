@@ -11,13 +11,16 @@ import (
 )
 
 func InitPermissions() {
+func InitPermissions() {
 	cfg := LoadConfig()
+	// Connect to database
 	// Connect to database
 	db, err := infrastructure.ConnectMySQL(cfg.DBDSN)
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
 	}
 
+	// Auto migrate all models
 	// Auto migrate all models
 	err = db.AutoMigrate(
 		&models.User{},
@@ -30,6 +33,13 @@ func InitPermissions() {
 		&models.Follow{},
 		&models.Group{},
 		&models.PassedQuestion{},
+		&models.Post{},
+		&models.Report{},
+		&models.Notification{},
+		&models.Attachment{},
+		&models.Message{},
+		&models.Topic{},
+		&models.Reaction{},
 		&models.Post{},
 		&models.Report{},
 		&models.Notification{},

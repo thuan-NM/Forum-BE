@@ -3,7 +3,10 @@ package repositories
 import (
 	"Forum_BE/models"
 	"fmt"
+	"fmt"
 	"gorm.io/gorm"
+	"log"
+	"time"
 	"log"
 	"time"
 )
@@ -13,6 +16,8 @@ type QuestionRepository interface {
 	GetQuestionByID(id uint) (*models.Question, error)
 	UpdateQuestion(question *models.Question) error
 	DeleteQuestion(id uint) error
+	ListQuestions(filters map[string]interface{}) ([]models.Question, int, error)
+	ListQuestionsExcludingPassed(filters map[string]interface{}) ([]models.Question, int, error)
 	ListQuestions(filters map[string]interface{}) ([]models.Question, int, error)
 	ListQuestionsExcludingPassed(filters map[string]interface{}) ([]models.Question, int, error)
 	GetPassedQuestionIDs(userID uint) ([]uint, error)
@@ -40,7 +45,17 @@ func (r *questionRepository) GetQuestionByID(id uint) (*models.Question, error) 
 		Preload("Answers").
 		Preload("Follows").
 		Preload("Topic").
+		Preload("Topic").
 		First(&question, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &question, nil
+}
+
+func (r *questionRepository) GetQuestionByIDMinimal(id uint) (*models.Question, error) {
+	var question models.Question
+	err := r.db.Model(&models.Question{}).First(&question, id).Error
 	if err != nil {
 		return nil, err
 	}
@@ -247,18 +262,80 @@ func (r *questionRepository) ListQuestionsExcludingPassed(filters map[string]int
 	if topicID, ok := filters["topic_id"]; ok {
 		log.Printf("topicID: %v", topicID)
 		query = query.Where("topic_id = ?", topicID)
+
+	// Process pagination parameters
+	page, okPage := filters["page"].(int)
+	limit, okLimit := filters["limit"].(int)
+	if !okPage || page < 1 {
+		page = 1
+	}
+	if !okLimit || limit < 1 {
+		limit = 10
+	}
+	offset := (page - 1) * limit
+
+	// Extract user_id for passed questions filtering
+	userID, ok := filters["user_id"].(uint)
+	if !ok || userID == 0 {
+		return nil, 0, fmt.Errorf("user_id is required for excluding passed questions")
+	}
+
+	// Query for counting total
+	countQuery := r.db.Model(&models.Question{})
+	countQuery = countQuery.Where("questions.id NOT IN (?)",
+		r.db.Table("passed_questions").Select("question_id").Where("user_id = ?", userID))
+	if search, ok := filters["title_search"]; ok {
+		countQuery = countQuery.Where("title LIKE ?", "%"+search.(string)+"%")
+	}
+	if status, ok := filters["status"]; ok {
+		countQuery = countQuery.Where("status = ?", status)
+	}
+	if interstatus, ok := filters["interstatus"]; ok {
+		countQuery = countQuery.Where("interaction_status = ?", interstatus)
+	}
+	if topicID, ok := filters["topic_id"]; ok {
+		countQuery = countQuery.Where("topic_id = ?", topicID)
+	}
+	var total int64
+	if err := countQuery.Count(&total).Error; err != nil {
+		log.Printf("Error counting questions excluding passed: %v", err)
+		return nil, 0, err
+	}
+
+	// Apply filters and pagination
+	query := r.db.Model(&models.Question{}).Preload("User").Preload("Topic").Preload("Answers").Preload("Follows")
+	query = query.Where("questions.id NOT IN (?)",
+		r.db.Table("passed_questions").Select("question_id").Where("user_id = ?", userID))
+	if search, ok := filters["title_search"]; ok {
+		query = query.Where("title LIKE ?", "%"+search.(string)+"%")
+	}
+	if status, ok := filters["status"]; ok {
+		query = query.Where("status = ?", status)
+	}
+	if interstatus, ok := filters["interstatus"]; ok {
+		query = query.Where("interaction_status = ?", interstatus)
+	}
+	if topicID, ok := filters["topic_id"]; ok {
+		log.Printf("topicID: %v", topicID)
+		query = query.Where("topic_id = ?", topicID)
 	}
 
 	query = query.Offset(offset).Limit(limit)
+	query = query.Offset(offset).Limit(limit)
 	err := query.Find(&questions).Error
 	if err != nil {
+		log.Printf("Error fetching questions excluding passed: %v", err)
+		return nil, 0, err
 		log.Printf("Error fetching questions excluding passed: %v", err)
 		return nil, 0, err
 	}
 
 	log.Printf("Found %d questions excluding passed with total %d", len(questions), total)
 	return questions, int(total), nil
+	log.Printf("Found %d questions excluding passed with total %d", len(questions), total)
+	return questions, int(total), nil
 }
+
 
 func (r *questionRepository) GetPassedQuestionIDs(userID uint) ([]uint, error) {
 	var ids []uint
@@ -267,6 +344,20 @@ func (r *questionRepository) GetPassedQuestionIDs(userID uint) ([]uint, error) {
 		return nil, err
 	}
 	return ids, nil
+}
+
+func (r *questionRepository) UpdateInteractionStatus(id uint, status string) error {
+	return r.db.Model(&models.Question{}).Where("id = ?", id).Updates(map[string]interface{}{
+		"interaction_status": status,
+		"updated_at":         time.Now(),
+	}).Error
+}
+
+func (r *questionRepository) UpdateQuestionStatus(id uint, status string) error {
+	return r.db.Model(&models.Question{}).Where("id = ?", id).Updates(map[string]interface{}{
+		"status":     status,
+		"updated_at": time.Now(),
+	}).Error
 }
 
 func (r *questionRepository) UpdateInteractionStatus(id uint, status string) error {

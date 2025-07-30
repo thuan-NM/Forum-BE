@@ -12,6 +12,15 @@ import (
 	"os"
 	"time"
 
+	"fmt"
+	"log/slog"
+	"os"
+	"time"
+
+	"github.com/go-redis/redis/v8"
+	"google.golang.org/api/idtoken"
+	"gopkg.in/gomail.v2"
+
 	"github.com/go-redis/redis/v8"
 	"google.golang.org/api/idtoken"
 	"gopkg.in/gomail.v2"
@@ -209,6 +218,30 @@ func (s *authService) Login(email, password string) (string, *models.User, error
 		cacheKey := fmt.Sprintf("user:status:%d", user.ID)
 		if err := s.redisClient.Set(context.Background(), cacheKey, "active", 1*time.Hour).Err(); err != nil {
 			slog.Warn("Không thể lưu trạng thái người dùng vào Redis", "userID", user.ID, "error", err)
+		}
+	}
+
+	if !user.EmailVerified {
+		slog.Warn("User email not verified", "email", email)
+		return "", nil, errors.New("Email not verified. Please verify your email before logging in.")
+	}
+
+	if user.Status == "banned" {
+		slog.Warn("User email is banned", "email", email)
+		return "", nil, errors.New("Email is banned. Please contact admin to log in.")
+
+	}
+
+	_, err = s.userService.UpdateUser(user.ID, "", user.Email, "", string(user.Role), string(models.StatusActive), user.EmailVerified)
+	if err != nil {
+		slog.Error("Failed to update user status", "userID", user.ID, "error", err)
+		return "", nil, err
+	}
+
+	if s.redisClient != nil {
+		cacheKey := fmt.Sprintf("user:status:%d", user.ID)
+		if err := s.redisClient.Set(context.Background(), cacheKey, "active", 1*time.Hour).Err(); err != nil {
+			slog.Warn("Failed to set user status in Redis", "userID", user.ID, "error", err)
 		}
 	}
 
