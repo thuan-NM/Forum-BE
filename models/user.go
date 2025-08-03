@@ -44,7 +44,6 @@ type User struct {
 	Notifications    []Notification `gorm:"foreignKey:UserID" json:"notifications,omitempty"`
 	SentMessages     []Message      `gorm:"foreignKey:FromUserID" json:"sent_messages,omitempty"`
 	ReceivedMessages []Message      `gorm:"foreignKey:ToUserID" json:"received_messages,omitempty"`
-	Attachments      []Attachment   `json:"attachments,omitempty" gorm:"many2many:user_attachments;"`
 	Following        []UserFollow   `json:"following,omitempty" gorm:"foreignKey:UserID"`
 	Followers        []UserFollow   `json:"followers,omitempty" gorm:"foreignKey:FollowedUserID"`
 }

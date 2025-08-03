@@ -69,6 +69,17 @@ func (r *topicRepository) ListTopics(filters map[string]interface{}) ([]models.T
 	}
 	offset := (page - 1) * limit
 
+	// Process sort parameter
+	sortOrder := "created_at DESC"
+	if sort, ok := filters["sort"].(string); ok {
+		if sort == "asc" {
+			sortOrder = "created_at ASC"
+		} else if sort == "desc" {
+			sortOrder = "created_at DESC"
+		}
+		log.Printf("Applying sort order: %s", sortOrder)
+	}
+
 	// Query for counting total
 	countQuery := r.db.Model(&models.Topic{})
 	if search, ok := filters["search"]; ok {
@@ -92,14 +103,14 @@ func (r *topicRepository) ListTopics(filters map[string]interface{}) ([]models.T
 		query = query.Where("status = ?", status)
 	}
 
-	query = query.Offset(offset).Limit(limit)
+	query = query.Offset(offset).Limit(limit).Order(sortOrder)
 	err := query.Find(&topics).Error
 	if err != nil {
 		log.Printf("Error fetching topics: %v", err)
 		return nil, 0, err
 	}
 
-	log.Printf("Found %d topics with total %d", len(topics), total)
+	log.Printf("Found %d topics with total %d, sort order: %s", len(topics), total, sortOrder)
 	return topics, int(total), nil
 }
 

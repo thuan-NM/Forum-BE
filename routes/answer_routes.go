@@ -3,6 +3,7 @@ package routes
 import (
 	"Forum_BE/controllers"
 	"Forum_BE/middlewares"
+	"Forum_BE/notification"
 	"Forum_BE/repositories"
 	"Forum_BE/services"
 	"github.com/gin-gonic/gin"
@@ -10,13 +11,14 @@ import (
 	"gorm.io/gorm"
 )
 
-func AnswerRoutes(db *gorm.DB, authorized *gin.RouterGroup, permService services.PermissionService, redisClient *redis.Client) {
+func AnswerRoutes(db *gorm.DB, authorized *gin.RouterGroup, permService services.PermissionService, redisClient *redis.Client, novuClient *notification.NovuClient) {
 	topicRepo := repositories.NewTopicRepository(db)
 	topicService := services.NewTopicService(topicRepo, redisClient, db)
 	questionRepo := repositories.NewQuestionRepository(db)
 	questionService := services.NewQuestionService(questionRepo, topicService, redisClient)
 	answerRepo := repositories.NewAnswerRepository(db)
-	answerService := services.NewAnswerService(answerRepo, questionRepo, questionService, redisClient)
+	userRepo := repositories.NewUserRepository(db)
+	answerService := services.NewAnswerService(answerRepo, questionRepo, questionService, userRepo, redisClient, novuClient)
 	answerController := controllers.NewAnswerController(answerService)
 
 	answers := authorized.Group("/answers")

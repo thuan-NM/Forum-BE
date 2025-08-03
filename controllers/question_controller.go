@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 type QuestionController struct {
@@ -129,10 +130,11 @@ func (qc *QuestionController) ListQuestions(c *gin.Context) {
 	if interstatus := c.Query("interstatus"); interstatus != "" {
 		filters["interstatus"] = interstatus
 	}
-	if topicID := c.Query("topic_id"); topicID != "" {
-		if id, err := strconv.ParseUint(topicID, 10, 64); err == nil {
-			filters["topic_id"] = uint(id)
-		}
+	if topicIDs := c.Query("topic_id"); topicIDs != "" {
+		filters["topic_id"] = strings.Split(topicIDs, ",")
+	}
+	if sort := c.Query("sort"); sort != "" {
+		filters["sort"] = sort
 	}
 	if page := c.Query("page"); page != "" {
 		if p, err := strconv.Atoi(page); err == nil {
@@ -180,10 +182,11 @@ func (qc *QuestionController) GetAllQuestion(c *gin.Context) {
 	if interstatus := c.Query("interstatus"); interstatus != "" {
 		filters["interstatus"] = interstatus
 	}
-	if topicID := c.Query("topic_id"); topicID != "" {
-		if id, err := strconv.ParseUint(topicID, 10, 64); err == nil {
-			filters["topic_id"] = uint(id)
-		}
+	if topicIDs := c.Query("topic_id"); topicIDs != "" {
+		filters["topic_id"] = strings.Split(topicIDs, ",")
+	}
+	if sort := c.Query("sort"); sort != "" {
+		filters["sort"] = sort
 	}
 	if page := c.Query("page"); page != "" {
 		if p, err := strconv.Atoi(page); err == nil {
@@ -212,6 +215,7 @@ func (qc *QuestionController) GetAllQuestion(c *gin.Context) {
 		"total":     total,
 	})
 }
+
 func (qc *QuestionController) UpdateQuestionStatus(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
@@ -280,9 +284,11 @@ func (qc *QuestionController) SuggestQuestions(c *gin.Context) {
 	if ok {
 		filters["user_id"] = userIDRaw.(uint)
 	}
-	sort := c.Query("sort")
-	if sort == "popular" {
-		filters["sort"] = "follow_count"
+	if topicIDs := c.Query("topic_id"); topicIDs != "" {
+		filters["topic_id"] = strings.Split(topicIDs, ",")
+	}
+	if sort := c.Query("sort"); sort != "" {
+		filters["sort"] = sort
 	}
 	if page := c.Query("page"); page != "" {
 		if p, err := strconv.Atoi(page); err == nil {

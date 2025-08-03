@@ -5,6 +5,7 @@ import (
 	"Forum_BE/services"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
+	"log"
 	"net/http"
 	"strconv"
 )
@@ -145,6 +146,15 @@ func (tc *TopicController) ListTopics(c *gin.Context) {
 	}
 	if search := c.Query("search"); search != "" {
 		filters["search"] = search
+	}
+	if sort := c.Query("sort"); sort != "" {
+		if sort == "asc" || sort == "desc" {
+			filters["sort"] = sort
+			log.Printf("Sort parameter received: %s", sort)
+		} else {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Giá trị sort không hợp lệ, chỉ chấp nhận 'asc' hoặc 'desc'"})
+			return
+		}
 	}
 	if page := c.Query("page"); page != "" {
 		if p, err := strconv.Atoi(page); err == nil {

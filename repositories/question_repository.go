@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"gorm.io/gorm"
 	"log"
+	"strconv"
 	"time"
 )
 
@@ -66,7 +67,6 @@ func (r *questionRepository) DeleteQuestion(id uint) error {
 
 func (r *questionRepository) ListQuestions(filters map[string]interface{}) ([]models.Question, int, error) {
 	var questions []models.Question
-
 	// Process pagination parameters
 	page, okPage := filters["page"].(int)
 	limit, okLimit := filters["limit"].(int)
@@ -77,6 +77,16 @@ func (r *questionRepository) ListQuestions(filters map[string]interface{}) ([]mo
 		limit = 10
 	}
 	offset := (page - 1) * limit
+
+	// Process sort parameter
+	sortOrder := "created_at DESC"
+	if sort, ok := filters["sort"].(string); ok {
+		if sort == "asc" {
+			sortOrder = "created_at ASC"
+		} else if sort == "desc" {
+			sortOrder = "created_at DESC"
+		}
+	}
 
 	// Query for counting total
 	countQuery := r.db.Model(&models.Question{})
@@ -89,9 +99,18 @@ func (r *questionRepository) ListQuestions(filters map[string]interface{}) ([]mo
 	if interstatus, ok := filters["interstatus"]; ok {
 		countQuery = countQuery.Where("interaction_status = ?", interstatus)
 	}
-	if topicID, ok := filters["topic_id"]; ok {
-		countQuery = countQuery.Where("topic_id = ?", topicID)
+	if topicIDs, ok := filters["topic_id"].([]string); ok && len(topicIDs) > 0 {
+		topicIDList := make([]uint, 0, len(topicIDs))
+		for _, id := range topicIDs {
+			if topicID, err := strconv.ParseUint(id, 10, 64); err == nil {
+				topicIDList = append(topicIDList, uint(topicID))
+			}
+		}
+		if len(topicIDList) > 0 {
+			countQuery = countQuery.Where("topic_id IN ?", topicIDList)
+		}
 	}
+
 	var total int64
 	if err := countQuery.Count(&total).Error; err != nil {
 		log.Printf("Error counting questions: %v", err)
@@ -109,24 +128,29 @@ func (r *questionRepository) ListQuestions(filters map[string]interface{}) ([]mo
 	if interstatus, ok := filters["interstatus"]; ok {
 		query = query.Where("interaction_status = ?", interstatus)
 	}
-	if topicID, ok := filters["topic_id"]; ok {
-		log.Printf("topicID: %v", topicID)
-		query = query.Where("topic_id = ?", topicID)
+	if topicIDs, ok := filters["topic_id"].([]string); ok && len(topicIDs) > 0 {
+		topicIDList := make([]uint, 0, len(topicIDs))
+		for _, id := range topicIDs {
+			if topicID, err := strconv.ParseUint(id, 10, 64); err == nil {
+				topicIDList = append(topicIDList, uint(topicID))
+			}
+		}
+		if len(topicIDList) > 0 {
+			query = query.Where("topic_id IN ?", topicIDList)
+		}
 	}
-
-	query = query.Offset(offset).Limit(limit)
+	query = query.Offset(offset).Limit(limit).Order(sortOrder)
 	err := query.Find(&questions).Error
 	if err != nil {
 		log.Printf("Error fetching questions: %v", err)
 		return nil, 0, err
 	}
-
 	log.Printf("Found %d questions with total %d", len(questions), total)
 	return questions, int(total), nil
 }
+
 func (r *questionRepository) GetAllQuestion(filters map[string]interface{}) ([]models.Question, int, error) {
 	var questions []models.Question
-
 	// Process pagination parameters
 	page, okPage := filters["page"].(int)
 	limit, okLimit := filters["limit"].(int)
@@ -137,6 +161,16 @@ func (r *questionRepository) GetAllQuestion(filters map[string]interface{}) ([]m
 		limit = 10
 	}
 	offset := (page - 1) * limit
+
+	// Process sort parameter
+	sortOrder := "created_at DESC"
+	if sort, ok := filters["sort"].(string); ok {
+		if sort == "asc" {
+			sortOrder = "created_at ASC"
+		} else if sort == "desc" {
+			sortOrder = "created_at DESC"
+		}
+	}
 
 	// Query for counting total
 	countQuery := r.db.Model(&models.Question{})
@@ -149,12 +183,21 @@ func (r *questionRepository) GetAllQuestion(filters map[string]interface{}) ([]m
 	if interstatus, ok := filters["interstatus"]; ok {
 		countQuery = countQuery.Where("interaction_status = ?", interstatus)
 	}
-	if topicID, ok := filters["topic_id"]; ok {
-		countQuery = countQuery.Where("topic_id = ?", topicID)
+	if topicIDs, ok := filters["topic_id"].([]string); ok && len(topicIDs) > 0 {
+		topicIDList := make([]uint, 0, len(topicIDs))
+		for _, id := range topicIDs {
+			if topicID, err := strconv.ParseUint(id, 10, 64); err == nil {
+				topicIDList = append(topicIDList, uint(topicID))
+			}
+		}
+		if len(topicIDList) > 0 {
+			countQuery = countQuery.Where("topic_id IN ?", topicIDList)
+		}
 	}
 	if user_id, okUserId := filters["user_id"]; okUserId {
 		countQuery = countQuery.Where("user_id = ?", user_id)
 	}
+
 	var total int64
 	if err := countQuery.Count(&total).Error; err != nil {
 		log.Printf("Error counting questions: %v", err)
@@ -172,26 +215,32 @@ func (r *questionRepository) GetAllQuestion(filters map[string]interface{}) ([]m
 	if interstatus, ok := filters["interstatus"]; ok {
 		query = query.Where("interaction_status = ?", interstatus)
 	}
-	if topicID, ok := filters["topic_id"]; ok {
-		log.Printf("topicID: %v", topicID)
-		query = query.Where("topic_id = ?", topicID)
+	if topicIDs, ok := filters["topic_id"].([]string); ok && len(topicIDs) > 0 {
+		topicIDList := make([]uint, 0, len(topicIDs))
+		for _, id := range topicIDs {
+			if topicID, err := strconv.ParseUint(id, 10, 64); err == nil {
+				topicIDList = append(topicIDList, uint(topicID))
+			}
+		}
+		if len(topicIDList) > 0 {
+			query = query.Where("topic_id IN ?", topicIDList)
+		}
 	}
 	if user_id, okUserId := filters["user_id"]; okUserId {
 		query = query.Where("user_id = ?", user_id)
 	}
-	query = query.Offset(offset).Limit(limit)
+	query = query.Offset(offset).Limit(limit).Order(sortOrder)
 	err := query.Find(&questions).Error
 	if err != nil {
 		log.Printf("Error fetching questions: %v", err)
 		return nil, 0, err
 	}
-
 	log.Printf("Found %d questions with total %d", len(questions), total)
 	return questions, int(total), nil
 }
+
 func (r *questionRepository) ListQuestionsExcludingPassed(filters map[string]interface{}) ([]models.Question, int, error) {
 	var questions []models.Question
-
 	// Process pagination parameters
 	page, okPage := filters["page"].(int)
 	limit, okLimit := filters["limit"].(int)
@@ -202,6 +251,16 @@ func (r *questionRepository) ListQuestionsExcludingPassed(filters map[string]int
 		limit = 10
 	}
 	offset := (page - 1) * limit
+
+	// Process sort parameter
+	sortOrder := "created_at DESC"
+	if sort, ok := filters["sort"].(string); ok {
+		if sort == "asc" {
+			sortOrder = "created_at ASC"
+		} else if sort == "desc" {
+			sortOrder = "created_at DESC"
+		}
+	}
 
 	// Extract user_id for passed questions filtering
 	userID, ok := filters["user_id"].(uint)
@@ -222,9 +281,18 @@ func (r *questionRepository) ListQuestionsExcludingPassed(filters map[string]int
 	if interstatus, ok := filters["interstatus"]; ok {
 		countQuery = countQuery.Where("interaction_status = ?", interstatus)
 	}
-	if topicID, ok := filters["topic_id"]; ok {
-		countQuery = countQuery.Where("topic_id = ?", topicID)
+	if topicIDs, ok := filters["topic_id"].([]string); ok && len(topicIDs) > 0 {
+		topicIDList := make([]uint, 0, len(topicIDs))
+		for _, id := range topicIDs {
+			if topicID, err := strconv.ParseUint(id, 10, 64); err == nil {
+				topicIDList = append(topicIDList, uint(topicID))
+			}
+		}
+		if len(topicIDList) > 0 {
+			countQuery = countQuery.Where("topic_id IN ?", topicIDList)
+		}
 	}
+
 	var total int64
 	if err := countQuery.Count(&total).Error; err != nil {
 		log.Printf("Error counting questions excluding passed: %v", err)
@@ -244,18 +312,23 @@ func (r *questionRepository) ListQuestionsExcludingPassed(filters map[string]int
 	if interstatus, ok := filters["interstatus"]; ok {
 		query = query.Where("interaction_status = ?", interstatus)
 	}
-	if topicID, ok := filters["topic_id"]; ok {
-		log.Printf("topicID: %v", topicID)
-		query = query.Where("topic_id = ?", topicID)
+	if topicIDs, ok := filters["topic_id"].([]string); ok && len(topicIDs) > 0 {
+		topicIDList := make([]uint, 0, len(topicIDs))
+		for _, id := range topicIDs {
+			if topicID, err := strconv.ParseUint(id, 10, 64); err == nil {
+				topicIDList = append(topicIDList, uint(topicID))
+			}
+		}
+		if len(topicIDList) > 0 {
+			query = query.Where("topic_id IN ?", topicIDList)
+		}
 	}
-
-	query = query.Offset(offset).Limit(limit)
+	query = query.Offset(offset).Limit(limit).Order(sortOrder)
 	err := query.Find(&questions).Error
 	if err != nil {
 		log.Printf("Error fetching questions excluding passed: %v", err)
 		return nil, 0, err
 	}
-
 	log.Printf("Found %d questions excluding passed with total %d", len(questions), total)
 	return questions, int(total), nil
 }

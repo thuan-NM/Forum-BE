@@ -170,11 +170,19 @@ func (r *postRepository) GetAllPosts(filters map[string]interface{}) ([]models.P
 	if status, ok := filters["status"].(string); ok && status != "" {
 		query = query.Where("status = ?", status)
 	}
-	if tagfilter, ok := filters["tagfilter"].(uint); ok {
+	if tagIDs, ok := filters["tagfilter"].([]uint); ok && len(tagIDs) > 0 {
 		query = query.
 			Joins("JOIN post_tags ON post_tags.post_id = posts.id").
-			Joins("JOIN tags ON tags.id = post_tags.tag_id").
-			Where("tags.id = ?", tagfilter)
+			Where("post_tags.tag_id IN ?", tagIDs).
+			Group("posts.id")
+	}
+	sortOrder := "created_at DESC" // mặc định
+	if s, ok := filters["sort"].(string); ok {
+		if s == "asc" {
+			sortOrder = "created_at ASC"
+		} else if s == "desc" {
+			sortOrder = "created_at DESC"
+		}
 	}
 
 	// Process pagination
@@ -196,7 +204,7 @@ func (r *postRepository) GetAllPosts(filters map[string]interface{}) ([]models.P
 	}
 
 	// Fetch data
-	query = query.Offset(offset).Limit(limit).Preload("User").Preload("Tags").Preload("Comments").Order("created_at DESC")
+	query = query.Offset(offset).Limit(limit).Preload("User").Preload("Tags").Preload("Comments").Order(sortOrder)
 	if err := query.Find(&posts).Error; err != nil {
 		log.Printf("Error fetching posts: %v", err)
 		return nil, 0, err

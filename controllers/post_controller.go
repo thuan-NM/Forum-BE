@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 type PostController struct {
@@ -101,7 +102,7 @@ func (pc *PostController) UpdatePost(c *gin.Context) {
 		return
 	}
 
-	post, err := pc.postService.UpdatePost(uint(id), req.Content, models.PostStatus(req.Status), req.Tags)
+	post, err := pc.postService.UpdatePost(uint(id), req.Title, req.Content, models.PostStatus(req.Status), req.Tags)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -213,10 +214,21 @@ func (pc *PostController) GetAllPosts(c *gin.Context) {
 	//	filters["tagfilter"] = tagfilter
 	//}
 	if tagfilter := c.Query("tagfilter"); tagfilter != "" {
-		if tagfilter, err := strconv.ParseUint(tagfilter, 10, 64); err == nil {
-			filters["tagfilter"] = uint(tagfilter)
+		tagStrings := strings.Split(tagfilter, ",")
+		var tagIDs []uint
+		for _, s := range tagStrings {
+			if id, err := strconv.ParseUint(strings.TrimSpace(s), 10, 64); err == nil {
+				tagIDs = append(tagIDs, uint(id))
+			}
+		}
+		if len(tagIDs) > 0 {
+			filters["tagfilter"] = tagIDs
 		}
 	}
+	if sort := c.Query("sort"); sort != "" {
+		filters["sort"] = sort
+	}
+
 	if limit := c.Query("limit"); limit != "" {
 		if l, err := strconv.Atoi(limit); err == nil && l > 0 {
 			filters["limit"] = l

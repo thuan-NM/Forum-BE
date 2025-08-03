@@ -4,8 +4,10 @@ import (
 	"Forum_BE/responses"
 	"Forum_BE/services"
 	"github.com/gin-gonic/gin"
+	"log"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 type AnswerController struct {
@@ -21,7 +23,7 @@ func (ac *AnswerController) CreateAnswer(c *gin.Context) {
 		Title      string `json:"title" binding:"required"`
 		Content    string `json:"content" binding:"required"`
 		QuestionID uint   `json:"questionId" binding:"required"`
-		Tags       []uint `json:"tags" binding:"required"`
+		Tags       []uint `json:"tags"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -29,7 +31,7 @@ func (ac *AnswerController) CreateAnswer(c *gin.Context) {
 		return
 	}
 
-	userID := c.GetUint("user_id") // Middleware đã thêm user_id vào context
+	userID := c.GetUint("user_id")
 
 	answer, err := ac.answerService.CreateAnswer(req.Content, userID, req.QuestionID, req.Tags, req.Title)
 	if err != nil {
@@ -43,7 +45,6 @@ func (ac *AnswerController) CreateAnswer(c *gin.Context) {
 	})
 }
 
-// GetAnswer xử lý yêu cầu lấy answer theo ID
 func (ac *AnswerController) GetAnswer(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
@@ -72,7 +73,10 @@ func (ac *AnswerController) EditAnswer(c *gin.Context) {
 	}
 
 	var req struct {
-		Content string `json:"content"`
+		Title   string `json:"title"`
+		Content string `json:"content" binding:"required"`
+		Status  string `json:"status"`
+		Tags    []uint `json:"tags"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -80,7 +84,7 @@ func (ac *AnswerController) EditAnswer(c *gin.Context) {
 		return
 	}
 
-	answer, err := ac.answerService.UpdateAnswer(uint(id), req.Content)
+	answer, err := ac.answerService.UpdateAnswer(uint(id), req.Title, req.Content, req.Status, req.Tags)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -92,7 +96,6 @@ func (ac *AnswerController) EditAnswer(c *gin.Context) {
 	})
 }
 
-// DeleteAnswer xử lý yêu cầu xóa answer
 func (ac *AnswerController) DeleteAnswer(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
@@ -135,10 +138,33 @@ func (ac *AnswerController) ListAnswers(c *gin.Context) {
 		filters["content LIKE ?"] = "%" + search + "%"
 	}
 
+	if tagfilter := c.Query("tagfilter"); tagfilter != "" {
+		tagStrings := strings.Split(tagfilter, ",")
+		var tagIDs []uint
+		for _, s := range tagStrings {
+			if id, err := strconv.ParseUint(strings.TrimSpace(s), 10, 64); err == nil {
+				tagIDs = append(tagIDs, uint(id))
+			}
+		}
+		if len(tagIDs) > 0 {
+			filters["tagfilter"] = tagIDs
+		}
+	}
+
+	if sort := c.Query("sort"); sort != "" {
+		if sort == "asc" || sort == "desc" {
+			filters["sort"] = sort
+			log.Printf("Sort parameter received: %s", sort)
+		} else {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Giá trị sort không hợp lệ, chỉ chấp nhận 'asc' hoặc 'desc'"})
+			return
+		}
+	}
+
 	limitStr := c.Query("limit")
 	pageStr := c.Query("page")
-	limit := 10 // Default limit
-	page := 1   // Default page
+	limit := 10
+	page := 1
 	if limitStr != "" {
 		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
 			limit = l
@@ -188,6 +214,27 @@ func (ac *AnswerController) GetAllAnswers(c *gin.Context) {
 			filters["user_id"] = uint(uID)
 		}
 	}
+	if tagfilter := c.Query("tagfilter"); tagfilter != "" {
+		tagStrings := strings.Split(tagfilter, ",")
+		var tagIDs []uint
+		for _, s := range tagStrings {
+			if id, err := strconv.ParseUint(strings.TrimSpace(s), 10, 64); err == nil {
+				tagIDs = append(tagIDs, uint(id))
+			}
+		}
+		if len(tagIDs) > 0 {
+			filters["tagfilter"] = tagIDs
+		}
+	}
+	if sort := c.Query("sort"); sort != "" {
+		if sort == "asc" || sort == "desc" {
+			filters["sort"] = sort
+			log.Printf("Sort parameter received: %s", sort)
+		} else {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Giá trị sort không hợp lệ, chỉ chấp nhận 'asc' hoặc 'desc'"})
+			return
+		}
+	}
 	if page := c.Query("page"); page != "" {
 		if p, err := strconv.Atoi(page); err == nil {
 			filters["page"] = p
@@ -198,11 +245,7 @@ func (ac *AnswerController) GetAllAnswers(c *gin.Context) {
 			filters["limit"] = l
 		}
 	}
-	if tagfilter := c.Query("tagfilter"); tagfilter != "" {
-		if tagfilter, err := strconv.ParseUint(tagfilter, 10, 64); err == nil {
-			filters["tagfilter"] = uint(tagfilter)
-		}
-	}
+
 	answers, total, err := ac.answerService.GetAllAnswers(filters)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -219,6 +262,7 @@ func (ac *AnswerController) GetAllAnswers(c *gin.Context) {
 		"total":   total,
 	})
 }
+
 func (ac *AnswerController) UpdateAnswerStatus(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
@@ -256,7 +300,7 @@ func (ac *AnswerController) AcceptAnswer(c *gin.Context) {
 		return
 	}
 
-	userID := c.GetUint("user_id") // Lấy từ middleware
+	userID := c.GetUint("user_id")
 
 	answer, err := ac.answerService.AcceptAnswer(uint(id), userID)
 	if err != nil {

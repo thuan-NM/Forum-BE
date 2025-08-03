@@ -18,7 +18,7 @@ type PostService interface {
 	GetPostByID(id uint) (*models.Post, error)
 	GetPostByIDSimple(id uint) (*models.Post, error)
 	DeletePost(id uint) error
-	UpdatePost(id uint, content string, status models.PostStatus, tagId []uint) (*models.Post, error)
+	UpdatePost(id uint, title, content string, status models.PostStatus, tagId []uint) (*models.Post, error)
 	UpdatePostStatus(id uint, status string) (*models.Post, error)
 	ListPosts(filters map[string]interface{}) ([]models.Post, int, error)
 	GetAllPosts(filters map[string]interface{}) ([]models.Post, int, error)
@@ -153,7 +153,7 @@ func (s *postService) DeletePost(id uint) error {
 	return nil
 }
 
-func (s *postService) UpdatePost(id uint, content string, status models.PostStatus, tagId []uint) (*models.Post, error) {
+func (s *postService) UpdatePost(id uint, title, content string, status models.PostStatus, tagId []uint) (*models.Post, error) {
 	post, err := s.postRepo.GetPostByID(id)
 	if err != nil {
 		log.Printf("Failed to get post %d: %v", id, err)
@@ -162,6 +162,9 @@ func (s *postService) UpdatePost(id uint, content string, status models.PostStat
 
 	if content != "" {
 		post.Content = content
+	}
+	if title != "" {
+		post.Title = title
 	}
 	if status != "" {
 		if !IsValidStatus(string(status)) {

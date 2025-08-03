@@ -199,7 +199,7 @@ func (s *commentService) UpdateComment(id uint, content string) (*models.Comment
 
 	s.invalidateCache(fmt.Sprintf("comment:%d", id))
 	if comment.PostID != nil {
-		s.invalidateCache(fmt.Sprintf("comments:question:%d:*", *comment.PostID))
+		s.invalidateCache(fmt.Sprintf("comments:post:%d:*", *comment.PostID))
 	}
 	if comment.AnswerID != nil {
 		s.invalidateCache(fmt.Sprintf("comments:answer:%d:*", *comment.AnswerID))
@@ -237,7 +237,7 @@ func (s *commentService) DeleteComment(id uint) error {
 	}
 
 	if comment.PostID != nil {
-		s.invalidateCache(fmt.Sprintf("comments:question:%d:*", *comment.PostID))
+		s.invalidateCache(fmt.Sprintf("comments:post:%d:*", *comment.PostID))
 	}
 	if comment.AnswerID != nil {
 		s.invalidateCache(fmt.Sprintf("comments:answer:%d:*", *comment.AnswerID))
@@ -395,7 +395,7 @@ func (s *commentService) UpdateCommentStatus(id uint, status string) (*models.Co
 	}
 	s.invalidateCache(fmt.Sprintf("comment:%d", id))
 	if comment.PostID != nil {
-		s.invalidateCache(fmt.Sprintf("comments:question:%d:*", *comment.PostID))
+		s.invalidateCache(fmt.Sprintf("comments:post:%d:*", *comment.PostID))
 	}
 	if comment.AnswerID != nil {
 		s.invalidateCache(fmt.Sprintf("comments:answer:%d:*", *comment.AnswerID))

@@ -2,6 +2,7 @@ package services
 
 import (
 	"Forum_BE/models"
+	"Forum_BE/notification" // Thêm package notification với NovuClient
 	"Forum_BE/repositories"
 	"Forum_BE/utils"
 	"context"
@@ -16,7 +17,7 @@ import (
 type AnswerService interface {
 	CreateAnswer(content string, userID uint, questionID uint, tagId []uint, title string) (*models.Answer, error)
 	GetAnswerByID(id uint) (*models.Answer, error)
-	UpdateAnswer(id uint, content string) (*models.Answer, error)
+	UpdateAnswer(id uint, title, content string, status string, tagId []uint) (*models.Answer, error)
 	DeleteAnswer(id uint) error
 	ListAnswers(filters map[string]interface{}) ([]models.Answer, int, error)
 	GetAllAnswers(filters map[string]interface{}) ([]models.Answer, int, error)
@@ -28,15 +29,25 @@ type answerService struct {
 	answerRepo      repositories.AnswerRepository
 	questionRepo    repositories.QuestionRepository
 	questionService QuestionService
+	userRepo        repositories.UserRepository // Thêm UserRepository
 	redisClient     *redis.Client
+	novuClient      *notification.NovuClient // Thêm NovuClient
 }
 
-func NewAnswerService(aRepo repositories.AnswerRepository, qRepo repositories.QuestionRepository, qService QuestionService, redisClient *redis.Client) AnswerService {
+func NewAnswerService(aRepo repositories.AnswerRepository, qRepo repositories.QuestionRepository, qService QuestionService, userRepo repositories.UserRepository, redisClient *redis.Client, novuClient *notification.NovuClient) AnswerService {
+	if userRepo == nil {
+		log.Fatal("user repository is nil")
+	}
+	if novuClient == nil {
+		log.Fatal("novu client is nil")
+	}
 	return &answerService{
 		answerRepo:      aRepo,
 		questionRepo:    qRepo,
 		questionService: qService,
+		userRepo:        userRepo,
 		redisClient:     redisClient,
+		novuClient:      novuClient,
 	}
 }
 
@@ -64,6 +75,7 @@ func (s *answerService) GetAllAnswers(filters map[string]interface{}) ([]models.
 
 	return answers, total, nil
 }
+
 func (s *answerService) CreateAnswer(content string, userID uint, questionID uint, tagId []uint, title string) (*models.Answer, error) {
 	if content == "" {
 		return nil, errors.New("Content is required")
@@ -98,6 +110,20 @@ func (s *answerService) CreateAnswer(content string, userID uint, questionID uin
 	s.invalidateCache("tags:*")
 
 	log.Printf("Cache invalidated for questions:* and tags:* due to new answer for question %d", questionID)
+
+	// Send notification
+	answerer, err := s.userRepo.GetUserByID(userID)
+	if err != nil {
+		log.Printf("Không lấy được thông tin người trả lời: %v", err)
+	} else {
+		if question.UserID != userID {
+			workflowID := "new-answer-question-notification"
+			message := fmt.Sprintf("%s đã trả lời câu hỏi của bạn: %s", answerer.FullName, question.Title)
+			if err := s.novuClient.SendNotification(question.UserID, workflowID, message); err != nil {
+				log.Printf("Gửi thông báo trả lời câu hỏi thất bại: %v", err)
+			}
+		}
+	}
 
 	log.Printf("Answer %d created successfully for question %d", answer.ID, questionID)
 	return answer, nil
@@ -141,25 +167,30 @@ func (s *answerService) GetAnswerByID(id uint) (*models.Answer, error) {
 	return answer, nil
 }
 
-func (s *answerService) UpdateAnswer(id uint, content string) (*models.Answer, error) {
+func (s *answerService) UpdateAnswer(id uint, title, content string, status string, tagId []uint) (*models.Answer, error) {
 	answer, err := s.answerRepo.GetAnswerByID(id)
 	if err != nil {
 		log.Printf("Failed to get answer %d: %v", id, err)
 		return nil, err
 	}
-
+	if title != "" {
+		answer.Title = title
+	}
 	if content != "" {
 		answer.Content = content
 	}
-
-	if err := s.answerRepo.UpdateAnswer(answer); err != nil {
+	if status != "" {
+		answer.Status = status
+	}
+	if err := s.answerRepo.UpdateAnswer(answer, tagId); err != nil {
 		log.Printf("Failed to update answer %d: %v", id, err)
 		return nil, err
 	}
 
 	s.invalidateCache(fmt.Sprintf("answer:%d", id))
 	s.invalidateCache(fmt.Sprintf("answers:question:%d:*", answer.QuestionID))
-
+	s.invalidateCache("answers:*")
+	s.invalidateCache("tags:*")
 	return answer, nil
 }
 
@@ -330,7 +361,7 @@ func (s *answerService) AcceptAnswer(id uint, userID uint) (*models.Answer, erro
 	}
 
 	answer.Accepted = true
-	if err := s.answerRepo.UpdateAnswer(answer); err != nil {
+	if err := s.answerRepo.UpdateAnswer(answer, nil); err != nil {
 		log.Printf("Failed to accept answer %d: %v", id, err)
 		return nil, err
 	}

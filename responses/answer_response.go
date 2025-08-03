@@ -18,7 +18,7 @@ type AnswerResponse struct {
 	RootCommentID  *uint             `json:"root_comment_id,omitempty" gorm:"index"`
 	HasEditHistory bool              `gorm:"default:false" json:"has_edit_history"`
 	Author         models.User       `json:"author"`
-	Question       models.Question   `json:"question"`
+	Question       QuestionResponse  `json:"question"`
 	ReactionCount  int               `json:"reactionsCount"`
 	Tags           []TagResponse     `json:"tags,omitempty"` // Thêm trường Tags
 }
@@ -32,6 +32,7 @@ func ToAnswerResponse(answer *models.Answer) AnswerResponse {
 	for _, tag := range answer.Tags {
 		tags = append(tags, TagResponse{ID: tag.ID, Name: tag.Name}) // Giả sử TagResponse có ID và Name
 	}
+	var question = ToQuestionResponse(&answer.Question)
 	return AnswerResponse{
 		ID:             answer.ID,
 		Title:          answer.Title,
@@ -46,7 +47,7 @@ func ToAnswerResponse(answer *models.Answer) AnswerResponse {
 		Comments:       comments,
 		Status:         answer.Status,
 		Author:         answer.User,
-		Question:       answer.Question,
+		Question:       question,
 		Tags:           tags,
 	}
 }

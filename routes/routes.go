@@ -45,7 +45,7 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, jwtSecret string, redisClient *redi
 		UserRoutes(db, authorized, permService, redisClient)
 		QuestionRoutes(db, authorized, permService, redisClient)
 		PostRoutes(db, authorized, permService, redisClient)
-		AnswerRoutes(db, authorized, permService, redisClient)
+		AnswerRoutes(db, authorized, permService, redisClient, novuClient)
 		CommentRoutes(db, authorized, permService, redisClient, novuClient)
 		TagRoutes(db, authorized, permService, redisClient)
 		TopicRoutes(db, authorized, permService, redisClient)

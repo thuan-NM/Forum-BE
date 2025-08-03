@@ -22,10 +22,9 @@ type Answer struct {
 	DeletedAt      gorm.DeletedAt  `gorm:"index" json:"-"`
 	PlainContent   string          `gorm:"type:text"`
 
-	User        User         `json:"user,omitempty" gorm:"foreignKey:UserID"`
-	Question    Question     `json:"question,omitempty" gorm:"foreignKey:QuestionID"`
-	Comments    []Comment    `json:"comments,omitempty" gorm:"foreignKey:AnswerID"`
-	Reactions   []Reaction   `json:"reactions,omitempty" gorm:"foreignKey:AnswerID"`
-	Tags        []Tag        `json:"tags,omitempty" gorm:"many2many:answer_tags;"`
-	Attachments []Attachment `json:"attachments,omitempty" gorm:"many2many:answer_attachments;"`
+	User      User       `json:"user,omitempty" gorm:"foreignKey:UserID"`
+	Question  Question   `json:"question,omitempty" gorm:"foreignKey:QuestionID"`
+	Comments  []Comment  `json:"comments,omitempty" gorm:"foreignKey:AnswerID"`
+	Reactions []Reaction `json:"reactions,omitempty" gorm:"foreignKey:AnswerID"`
+	Tags      []Tag      `json:"tags,omitempty" gorm:"many2many:answer_tags;"`
 }
