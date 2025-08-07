@@ -4,6 +4,7 @@ import (
 	"Forum_BE/models"
 	"gorm.io/gorm"
 	"log"
+	"strings"
 )
 
 type AttachmentRepository interface {
@@ -54,6 +55,7 @@ func (r *attachmentRepository) ListAttachments(filters map[string]interface{}) (
 	if fileType, ok := filters["file_type"].(string); ok {
 		query = query.Where("file_type = ?", fileType)
 	}
+	search, ok := filters["search"].(string)
 
 	var total int64
 	if err := query.Count(&total).Error; err != nil {
@@ -70,7 +72,10 @@ func (r *attachmentRepository) ListAttachments(filters map[string]interface{}) (
 		offset := (page - 1) * limit
 		query = query.Offset(offset)
 	}
-
+	if ok && search != "" {
+		search = strings.ToLower(search)
+		query = query.Where("file_name LIKE ?", "%"+search+"%")
+	}
 	err := query.Preload("User").Find(&attachments).Error
 	if err != nil {
 		log.Printf("Error fetching attachments: %v", err)

@@ -4,11 +4,13 @@ import (
 	"Forum_BE/models"
 	"Forum_BE/repositories"
 	"Forum_BE/utils"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/go-redis/redis/v8"
 	"log"
+	"net/http"
 	"strings"
 	"time"
 )
@@ -22,6 +24,7 @@ type QuestionService interface {
 	UpdateQuestionStatus(id uint, status string) (*models.Question, error)
 	UpdateInteractionStatus(id uint, status models.InteractionStatus, userID uint) (*models.Question, error)
 	GetAllQuestion(filters map[string]interface{}) ([]models.Question, int, error)
+	SyncQuestionsToRAG() ([]models.Question, error)
 }
 
 type questionService struct {
@@ -300,4 +303,41 @@ func (s *questionService) invalidateCache(pattern string) {
 			log.Printf("Failed to delete cache keys %v: %v", keys, err)
 		}
 	}
+}
+
+func (s *questionService) SyncQuestionsToRAG() ([]models.Question, error) {
+	questions, err := s.questionRepo.GetApprovedQuestions()
+	if err != nil {
+		return nil, err
+	}
+
+	type RAGQuestion struct {
+		ID   uint   `json:"id"`
+		Text string `json:"text"`
+	}
+
+	var payload []RAGQuestion
+	for _, q := range questions {
+		payload = append(payload, RAGQuestion{
+			ID:   q.ID,
+			Text: utils.StripHTML(q.Title + " " + q.Description),
+		})
+	}
+
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := http.Post("http://127.0.0.1:7000/import_questions", "application/json", bytes.NewBuffer(data))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("RAG server returned status %d", resp.StatusCode)
+	}
+
+	return questions, nil
 }

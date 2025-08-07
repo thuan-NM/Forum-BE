@@ -30,5 +30,6 @@ func QuestionRoutes(db *gorm.DB, authorized *gin.RouterGroup, permService servic
 		questions.GET("/suggest", middlewares.CheckPermission(permService, "question", "view"), questionController.SuggestQuestions)
 		questions.PUT("/:id/status", middlewares.CheckPermission(permService, "question", "change_status"), questionController.UpdateQuestionStatus)
 		questions.PUT("/:id/interaction-status", middlewares.CheckPermission(permService, "question", "change_inter_status"), questionController.UpdateInteractionStatus)
+		questions.POST("/sync", middlewares.CheckPermission(permService, "question", "create"), questionController.SyncQuestionsToRAG)
 	}
 }

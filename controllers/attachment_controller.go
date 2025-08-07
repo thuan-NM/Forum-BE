@@ -130,7 +130,9 @@ func (ac *AttachmentController) ListAttachments(c *gin.Context) {
 	if fileType != "" {
 		filters["file_type"] = fileType
 	}
-
+	if search := c.Query("search"); search != "" {
+		filters["search"] = search
+	}
 	limitStr := c.Query("limit")
 	pageStr := c.Query("page")
 	limit := 10 // Default limit
