@@ -21,6 +21,8 @@ type QuestionRepository interface {
 	UpdateQuestionStatus(id uint, status string) error
 	GetQuestionByIDMinimal(id uint) (*models.Question, error)
 	GetAllQuestion(filters map[string]interface{}) ([]models.Question, int, error)
+	GetQuestionsByIDs(ids []int) ([]models.Question, error)
+	GetApprovedQuestions() ([]models.Question, error)
 }
 
 type questionRepository struct {
@@ -354,4 +356,39 @@ func (r *questionRepository) UpdateQuestionStatus(id uint, status string) error 
 		"status":     status,
 		"updated_at": time.Now(),
 	}).Error
+}
+
+func (r *questionRepository) GetQuestionsByIDs(ids []int) ([]models.Question, error) {
+	var questions []models.Question
+
+	err := r.db.
+		Preload("User").
+		Preload("Topic").
+		Where("id IN ?", ids).
+		Find(&questions).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// Đảm bảo trả về đúng thứ tự như input
+	// Duyệt theo thứ tự của `ids`, map lại từng câu hỏi
+	idToQuestion := make(map[uint]models.Question)
+	for _, q := range questions {
+		idToQuestion[q.ID] = q
+	}
+
+	ordered := make([]models.Question, 0, len(ids))
+	for _, id := range ids {
+		if q, ok := idToQuestion[uint(id)]; ok {
+			ordered = append(ordered, q)
+		}
+	}
+
+	return ordered, nil
+}
+
+func (r *questionRepository) GetApprovedQuestions() ([]models.Question, error) {
+	var questions []models.Question
+	err := r.db.Where("status = ?", models.StatusApproved).Find(&questions).Error
+	return questions, err
 }

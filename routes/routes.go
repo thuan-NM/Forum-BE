@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"Forum_BE/jobs"
 	"Forum_BE/notification"
 	"os"
 
@@ -20,6 +21,12 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, jwtSecret string, redisClient *redi
 	permissionRepo := repositories.NewPermissionRepository(db)
 	permService := services.NewPermissionService(permissionRepo, userRepo)
 	novuClient := notification.NewNovuClient(os.Getenv("NOVU"))
+	questionRepo := repositories.NewQuestionRepository(db)
+	topicRepo := repositories.NewTopicRepository(db)
+	topicSer := services.NewTopicService(topicRepo, redisClient, db)
+	questionSer := services.NewQuestionService(questionRepo, topicSer, redisClient)
+	jobs.StartCronJobs(questionSer)
+
 	var permissions []models.Permission
 	//config.InitPermissions()
 	for _, perm := range permissions {
@@ -54,6 +61,7 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, jwtSecret string, redisClient *redi
 		VoteRoutes(db, authorized, permService)
 		ReportRoutes(db, authorized, permService, redisClient)
 		PermissionRoutes(authorized, permService)
+		ChatbotRoutes(db, authorized)
 		//FileRoutes(db, authorized, permService, redisClient, cld, uploadPreset)
 		AttachmentRoutes(db, authorized, permService, redisClient)
 		PassRoutes(db, authorized, permService, redisClient)
