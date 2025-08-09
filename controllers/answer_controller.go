@@ -24,6 +24,7 @@ func (ac *AnswerController) CreateAnswer(c *gin.Context) {
 		Content    string `json:"content" binding:"required"`
 		QuestionID uint   `json:"questionId" binding:"required"`
 		Tags       []uint `json:"tags"`
+		Status     string `json:"status"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -33,7 +34,7 @@ func (ac *AnswerController) CreateAnswer(c *gin.Context) {
 
 	userID := c.GetUint("user_id")
 
-	answer, err := ac.answerService.CreateAnswer(req.Content, userID, req.QuestionID, req.Tags, req.Title)
+	answer, err := ac.answerService.CreateAnswer(req.Content, userID, req.QuestionID, req.Tags, req.Title, req.Status)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

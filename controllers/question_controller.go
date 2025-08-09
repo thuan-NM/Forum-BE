@@ -23,6 +23,7 @@ func (qc *QuestionController) CreateQuestion(c *gin.Context) {
 		Title       string `json:"title" binding:"required"`
 		Description string `json:"description"`
 		TopicID     uint   `json:"topicId" binding:"required"`
+		Status      string `json:"status"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -32,7 +33,7 @@ func (qc *QuestionController) CreateQuestion(c *gin.Context) {
 
 	userID := c.GetUint("user_id")
 
-	question, err := qc.questionService.CreateQuestion(req.Title, req.Description, userID, req.TopicID)
+	question, err := qc.questionService.CreateQuestion(req.Title, req.Description, userID, req.TopicID, req.Status)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

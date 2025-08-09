@@ -24,13 +24,14 @@ func (cc *CommentController) CreateComment(c *gin.Context) {
 		PostID   *uint  `json:"post_id"`
 		AnswerID *uint  `json:"answer_id"`
 		ParentID *uint  `json:"parent_id"`
+		Status   string `json:"status"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request: " + err.Error()})
 		return
 	}
 	userID := c.GetUint("user_id")
-	comment, err := cc.commentService.CreateComment(req.Content, userID, req.PostID, req.AnswerID, req.ParentID)
+	comment, err := cc.commentService.CreateComment(req.Content, userID, req.PostID, req.AnswerID, req.ParentID, req.Status)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -128,7 +129,9 @@ func (cc *CommentController) ListComments(c *gin.Context) {
 			filters["user_id"] = uint(uID)
 		}
 	}
-
+	if status := c.Query("status"); status != "" {
+		filters["status"] = status
+	}
 	if search := c.Query("search"); search != "" {
 		filters["content"] = search
 	}
@@ -178,7 +181,9 @@ func (cc *CommentController) ListReplies(c *gin.Context) {
 			filters["limit"] = l
 		}
 	}
-
+	if status := c.Query("status"); status != "" {
+		filters["status"] = status
+	}
 	replies, total, err := cc.commentService.ListReplies(uint(parentID), filters)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

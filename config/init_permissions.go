@@ -169,6 +169,12 @@ func InitPermissions() {
 			"edit":   {models.RoleRoot, models.RoleAdmin},
 			"delete": {models.RoleRoot},
 		},
+		"analystic": {
+			"view": {models.RoleRoot, models.RoleAdmin},
+		},
+		"activities": {
+			"view": {models.RoleRoot, models.RoleAdmin},
+		},
 	}
 
 	// Derive resources from allowedPermissions keys

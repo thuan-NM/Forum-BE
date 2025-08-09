@@ -92,7 +92,10 @@ func (r *commentRepository) ListComments(filters map[string]interface{}) ([]mode
 		Where("deleted_at IS NULL")
 	page, okPage := filters["page"].(int)
 	limit, okLimit := filters["limit"].(int)
-
+	status, okStatus := filters["status"].(string)
+	if okStatus && status != "" {
+		query = query.Where("status = ?", status)
+	}
 	// Default pagination values
 	if !okPage || page < 1 {
 		page = 1
@@ -145,7 +148,10 @@ func (r *commentRepository) ListReplies(parentID uint, filters map[string]interf
 		Where("parent_id = ? AND deleted_at IS NULL", parentID)
 	page, okPage := filters["page"].(int)
 	limit, okLimit := filters["limit"].(int)
-
+	status, okStatus := filters["status"].(string)
+	if okStatus && status != "" {
+		query = query.Where("status = ?", status)
+	}
 	// Default pagination values
 	if !okPage || page < 1 {
 		page = 1

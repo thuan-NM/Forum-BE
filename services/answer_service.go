@@ -15,7 +15,7 @@ import (
 )
 
 type AnswerService interface {
-	CreateAnswer(content string, userID uint, questionID uint, tagId []uint, title string) (*models.Answer, error)
+	CreateAnswer(content string, userID uint, questionID uint, tagId []uint, title string, status string) (*models.Answer, error)
 	GetAnswerByID(id uint) (*models.Answer, error)
 	UpdateAnswer(id uint, title, content string, status string, tagId []uint) (*models.Answer, error)
 	DeleteAnswer(id uint) error
@@ -76,7 +76,7 @@ func (s *answerService) GetAllAnswers(filters map[string]interface{}) ([]models.
 	return answers, total, nil
 }
 
-func (s *answerService) CreateAnswer(content string, userID uint, questionID uint, tagId []uint, title string) (*models.Answer, error) {
+func (s *answerService) CreateAnswer(content string, userID uint, questionID uint, tagId []uint, title string, status string) (*models.Answer, error) {
 	if content == "" {
 		return nil, errors.New("Content is required")
 	}
@@ -97,6 +97,7 @@ func (s *answerService) CreateAnswer(content string, userID uint, questionID uin
 		UserID:     userID,
 		QuestionID: questionID,
 		Title:      title,
+		Status:     status,
 	}
 
 	if err := s.answerRepo.CreateAnswer(answer, tagId); err != nil {

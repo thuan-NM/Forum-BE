@@ -16,7 +16,7 @@ import (
 )
 
 type CommentService interface {
-	CreateComment(content string, userID uint, postID *uint, answerID *uint, parentID *uint) (*models.Comment, error)
+	CreateComment(content string, userID uint, postID *uint, answerID *uint, parentID *uint, status string) (*models.Comment, error)
 	GetCommentByID(id uint) (*models.Comment, error)
 	UpdateComment(id uint, content string) (*models.Comment, error)
 	DeleteComment(id uint) error
@@ -48,7 +48,7 @@ func NewCommentService(cRepo repositories.CommentRepository, pRepo repositories.
 	}
 }
 
-func (s *commentService) CreateComment(content string, userID uint, postID *uint, answerID *uint, parentID *uint) (*models.Comment, error) {
+func (s *commentService) CreateComment(content string, userID uint, postID *uint, answerID *uint, parentID *uint, status string) (*models.Comment, error) {
 	if content == "" {
 		return nil, fmt.Errorf("Nội dung là bắt buộc")
 	}
@@ -86,7 +86,7 @@ func (s *commentService) CreateComment(content string, userID uint, postID *uint
 		PostID:   postID,
 		AnswerID: answerID,
 		ParentID: parentID,
-		Status:   "approved",
+		Status:   status,
 		Metadata: []byte(`{"has_replies": false}`),
 	}
 
