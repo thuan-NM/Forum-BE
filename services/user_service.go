@@ -47,16 +47,17 @@ var (
 )
 
 type UpdateUserDTO struct {
-	Username      *string `json:"username,omitempty" binding:"omitempty,min=3,max=50"`
-	Email         *string `json:"email,omitempty" binding:"omitempty,email"`
-	Password      *string `json:"password,omitempty" binding:"omitempty,min=6"`
-	Role          *string `json:"role,omitempty" binding:"omitempty,oneof=root admin employee user"`
-	Status        *string `json:"status,omitempty" binding:"omitempty,oneof=active inactive banned"`
-	FullName      *string `json:"full_name,omitempty" binding:"omitempty,min=1,max=100"`
-	Avatar        *string `json:"avatar,omitempty" binding:"omitempty"`
-	Bio           *string `json:"bio,omitempty" binding:"omitempty"`
-	Location      *string `json:"location,omitempty" binding:"omitempty"`
-	EmailVerified *bool   `json:"email_verified,omitempty" binding:"omitempty"`
+	Username      *string    `json:"username,omitempty" binding:"omitempty,min=3,max=50"`
+	Email         *string    `json:"email,omitempty" binding:"omitempty,email"`
+	Password      *string    `json:"password,omitempty" binding:"omitempty,min=6"`
+	Role          *string    `json:"role,omitempty" binding:"omitempty,oneof=root admin employee user"`
+	Status        *string    `json:"status,omitempty" binding:"omitempty,oneof=active inactive banned"`
+	FullName      *string    `json:"full_name,omitempty" binding:"omitempty,min=1,max=100"`
+	Avatar        *string    `json:"avatar,omitempty" binding:"omitempty"`
+	Bio           *string    `json:"bio,omitempty" binding:"omitempty"`
+	Location      *string    `json:"location,omitempty" binding:"omitempty"`
+	LastLogin     *time.Time `json:"last_login,omitempty"`
+	EmailVerified *bool      `json:"email_verified,omitempty" binding:"omitempty"`
 }
 
 func (s *userService) CreateUser(username, email, password, fullname string, isVerify bool) (*models.User, error) {

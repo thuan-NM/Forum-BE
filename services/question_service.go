@@ -16,7 +16,7 @@ import (
 )
 
 type QuestionService interface {
-	CreateQuestion(title string, description string, userID, topicID uint) (*models.Question, error)
+	CreateQuestion(title string, description string, userID, topicID uint, status string) (*models.Question, error)
 	GetQuestionByID(id uint) (*models.Question, error)
 	UpdateQuestion(id uint, title string, description string, topicID uint) (*models.Question, error)
 	DeleteQuestion(id uint) error
@@ -37,7 +37,7 @@ func NewQuestionService(qRepo repositories.QuestionRepository, tService TopicSer
 	return &questionService{questionRepo: qRepo, topicService: tService, redisClient: redisClient}
 }
 
-func (s *questionService) CreateQuestion(title string, description string, userID, topicID uint) (*models.Question, error) {
+func (s *questionService) CreateQuestion(title string, description string, userID, topicID uint, status string) (*models.Question, error) {
 	if title == "" {
 		return nil, fmt.Errorf("title is required")
 	}
@@ -47,7 +47,7 @@ func (s *questionService) CreateQuestion(title string, description string, userI
 		Description:       description,
 		UserID:            userID,
 		TopicID:           topicID,
-		Status:            models.StatusPending,
+		Status:            models.QuestionStatus(status),
 		InteractionStatus: models.InteractionOpened,
 	}
 

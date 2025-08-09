@@ -27,7 +27,7 @@ func main() {
 	db.Debug().AutoMigrate(
 		&models.User{},
 		&models.Group{},
-		&models.Activity{},
+		//&models.ActivityItem{},
 		&models.Answer{},
 		&models.Attachment{},
 		&models.Follow{},

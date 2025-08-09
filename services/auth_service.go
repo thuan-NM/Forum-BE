@@ -42,7 +42,7 @@ type authService struct {
 }
 
 func NewAuthService(u UserService, uRepo repositories.UserRepository, secret string, redisClient *redis.Client, smtpHost, smtpUsername, smtpPassword string, smtpPort int) AuthService {
-	googleClientID := os.Getenv("GOOGLE_CLIENT_ID") // Sửa tên biến môi trường
+	googleClientID := os.Getenv("GOOGLE_CLIENT_ID")
 	if googleClientID == "" {
 		slog.Error("Google Client ID is not set in environment variables")
 	}
@@ -178,8 +178,6 @@ func (s *authService) Login(email, password string) (string, *models.User, error
 		slog.Warn("Không thể lấy người dùng qua email", "email", email, "error", err)
 		return "", nil, errors.New("Email hoặc mật khẩu không hợp lệ")
 	}
-	hashedPassword, err := utils.HashPassword(password)
-	slog.Warn("Mật khẩu không đúng", "dbpassword", user.Password, "password", hashedPassword)
 
 	if !utils.CheckPasswordHash(password, user.Password) {
 		slog.Warn("Mật khẩu không đúng", "email", email)
@@ -196,19 +194,33 @@ func (s *authService) Login(email, password string) (string, *models.User, error
 		return "", nil, errors.New("Email đã bị cấm. Vui lòng liên hệ admin để đăng nhập.")
 	}
 
+	// Cập nhật LastLogin
+	now := time.Now()
+	//lastLoginStr := now.Format(time.RFC3339)
 	updateDTO := UpdateUserDTO{
-		Status: stringPtr(string(models.StatusActive)),
+		Status:    stringPtr(string(models.StatusActive)),
+		LastLogin: &now,
 	}
 	_, err = s.userService.UpdateUser(user.ID, updateDTO)
 	if err != nil {
-		slog.Error("Không thể cập nhật trạng thái người dùng", "userID", user.ID, "error", err)
+		slog.Error("Không thể cập nhật trạng thái và last_login người dùng", "userID", user.ID, "error", err)
 		return "", nil, err
 	}
 
 	if s.redisClient != nil {
+		ctx := context.Background()
 		cacheKey := fmt.Sprintf("user:status:%d", user.ID)
-		if err := s.redisClient.Set(context.Background(), cacheKey, "active", 1*time.Hour).Err(); err != nil {
+		if err := s.redisClient.Set(ctx, cacheKey, "active", 1*time.Hour).Err(); err != nil {
 			slog.Warn("Không thể lưu trạng thái người dùng vào Redis", "userID", user.ID, "error", err)
+		}
+		cacheUserKey := fmt.Sprintf("user:%d", user.ID)
+		userJSON, err := json.Marshal(user)
+		if err == nil {
+			if err := s.redisClient.Set(ctx, cacheUserKey, userJSON, 24*time.Hour).Err(); err != nil {
+				slog.Warn("Không thể lưu dữ liệu người dùng vào Redis", "userID", user.ID, "error", err)
+			}
+		} else {
+			slog.Warn("Không thể mã hóa người dùng cho Redis", "userID", user.ID, "error", err)
 		}
 	}
 
@@ -253,19 +265,20 @@ func (s *authService) ChangePassword(userId uint, oldPassword, newPassword strin
 	}
 
 	// Hash mật khẩu mới
+	hashedNewPassword, err := utils.HashPassword(newPassword)
 	if err != nil {
 		slog.Error("Không thể hash mật khẩu mới", "userID", userId, "error", err)
 		return nil, errors.New("Không thể xử lý mật khẩu mới")
 	}
 
 	// Cập nhật mật khẩu
-	if _, err := s.userService.UpdateUser(userId, UpdateUserDTO{Password: &newPassword}); err != nil {
+	updateDTO := UpdateUserDTO{Password: &hashedNewPassword}
+	if _, err := s.userService.UpdateUser(userId, updateDTO); err != nil {
 		slog.Error("Cập nhật mật khẩu thất bại", "userID", userId, "error", err)
 		return nil, errors.New("Đổi mật khẩu thất bại")
 	}
 
-	// Xoá cache Redis nếu có
-	// Xoá cache Redis nếu có
+	// Xóa cache Redis nếu có
 	if s.redisClient != nil {
 		cacheKey := fmt.Sprintf("user:%d", userId)
 		cacheStatusKey := fmt.Sprintf("user:status:%d", userId)
@@ -283,7 +296,6 @@ func (s *authService) ChangePassword(userId uint, oldPassword, newPassword strin
 	}
 
 	return updatedUser, nil
-
 }
 
 func (s *authService) ResetToken(userID uint) (string, error) {
@@ -465,41 +477,41 @@ func (s *authService) sendVerificationEmail(email, verifyToken, username, fullNa
 	m.SetHeader("Subject", "Xác thực Email")
 	verificationLink := fmt.Sprintf("http://localhost:5000/api/verify-email?token=%s", verifyToken)
 	m.SetBody("text/html", fmt.Sprintf(`
-		<div style="background-color: #f9f9f9; padding: 20px; font-family: Arial, sans-serif;">
-			<table align="center" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);">
-				<tr>
-					<td style="text-align: center;">
-						<h2 style="color: #2d3748; margin-bottom: 10px;">Xin chào %s,</h2>
-						<p style="color: #666666; margin-top: 5px;">Chúc mừng bạn đã đăng ký thành công!</p>
-					</td>
-				</tr>
-				<tr>
-					<td style="padding: 20px 0; font-size: 16px; line-height: 1.6; color: #333333;">
-						<p>Để xác thực email và hoàn tất quá trình đăng ký, vui lòng nhấp vào liên kết bên dưới:</p>
-					</td>
-				</tr>
-				<tr>
-					<td style="text-align: center; padding: 20px;">
-						<a href="%s"
-							style="background-color: #4caf50; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 50px; font-size: 18px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); display: inline-block;">
-							Xác thực Email
-						</a>
-					</td>
-				</tr>
-				<tr>
-					<td style="padding-top: 20px; font-size: 14px; color: #888888; text-align: center; border-top: 1px solid #eeeeee;">
-						<p>Nếu bạn không yêu cầu xác thực này, vui lòng bỏ qua email này.</p>
-						<p>Cảm ơn bạn đã tin tưởng dịch vụ của chúng tôi.</p>
-					</td>
-				</tr>
-				<tr>
-					<td style="text-align: center; font-size: 12px; color: #aaaaaa; padding-top: 20px;">
-						<p>© %d KatzForum. All rights reserved.</p>
-					</td>
-				</tr>
-			</table>
-		</div>
-	`, username, verificationLink, time.Now().Year()))
+       <div style="background-color: #f9f9f9; padding: 20px; font-family: Arial, sans-serif;">
+          <table align="center" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);">
+             <tr>
+                <td style="text-align: center;">
+                   <h2 style="color: #2d3748; margin-bottom: 10px;">Xin chào %s,</h2>
+                   <p style="color: #666666; margin-top: 5px;">Chúc mừng bạn đã đăng ký thành công!</p>
+                </td>
+             </tr>
+             <tr>
+                <td style="padding: 20px 0; font-size: 16px; line-height: 1.6; color: #333333;">
+                   <p>Để xác thực email và hoàn tất quá trình đăng ký, vui lòng nhấp vào liên kết bên dưới:</p>
+                </td>
+             </tr>
+             <tr>
+                <td style="text-align: center; padding: 20px;">
+                   <a href="%s"
+                      style="background-color: #4caf50; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 50px; font-size: 18px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); display: inline-block;">
+                      Xác thực Email
+                   </a>
+                </td>
+             </tr>
+             <tr>
+                <td style="padding-top: 20px; font-size: 14px; color: #888888; text-align: center; border-top: 1px solid #eeeeee;">
+                   <p>Nếu bạn không yêu cầu xác thực này, vui lòng bỏ qua email này.</p>
+                   <p>Cảm ơn bạn đã tin tưởng dịch vụ của chúng tôi.</p>
+                </td>
+             </tr>
+             <tr>
+                <td style="text-align: center; font-size: 12px; color: #aaaaaa; padding-top: 20px;">
+                   <p>© %d KatzForum. All rights reserved.</p>
+                </td>
+             </tr>
+          </table>
+       </div>
+    `, username, verificationLink, time.Now().Year()))
 
 	d := gomail.NewDialer(s.smtpHost, s.smtpPort, s.smtpUsername, s.smtpPassword)
 	if err := d.DialAndSend(m); err != nil {
