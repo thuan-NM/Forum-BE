@@ -23,7 +23,7 @@ const (
 type Question struct {
 	ID                uint              `gorm:"primaryKey" json:"id"`
 	Title             string            `gorm:"not null;index" json:"title"`
-	Description       string            `gorm:"type:text" json:"description,omitempty"`
+	Description       string            `gorm:"type:longtext" json:"description,omitempty"`
 	UserID            uint              `gorm:"not null;index" json:"user_id"`
 	TopicID           uint              `gorm:"index" json:"topic_id"` // Liên kết với một topic duy nhất
 	ReportCount       int               `gorm:"default:0" json:"report_count"`
