@@ -42,7 +42,7 @@ type authService struct {
 }
 
 func NewAuthService(u UserService, uRepo repositories.UserRepository, secret string, redisClient *redis.Client, smtpHost, smtpUsername, smtpPassword string, smtpPort int) AuthService {
-	googleClientID := os.Getenv("GOOGLE_CLIENT_ID")
+	googleClientID := os.Getenv("YOUR_GOOGLE_CLIENT_ID")
 	if googleClientID == "" {
 		slog.Error("Google Client ID is not set in environment variables")
 	}

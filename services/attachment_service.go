@@ -15,7 +15,6 @@ import (
 	"log"
 	"mime/multipart"
 	"os"
-	"strings"
 	"time"
 )
 
@@ -56,9 +55,9 @@ func (s *attachmentService) UploadAttachment(file *multipart.FileHeader, userID 
 
 	// Validate Content-Type early
 	contentType := file.Header.Get("Content-Type")
-	if !strings.HasPrefix(contentType, "image/") {
-		return nil, errors.New("only image files are supported")
-	}
+	//if !strings.HasPrefix(contentType, "image/") {
+	//	return nil, errors.New("only image files are supported")
+	//}
 
 	// Open file with buffered reader
 	ctx := context.Background()

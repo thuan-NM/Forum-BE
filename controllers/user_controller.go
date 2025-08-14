@@ -45,7 +45,7 @@ func (uc *UserController) CreateUser(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, Response{
-		Message: "User created successfully",
+		Message: "Tạo người dùng thành công",
 		Data:    responses.ToUserResponse(user),
 	})
 }
@@ -53,14 +53,14 @@ func (uc *UserController) CreateUser(c *gin.Context) {
 func (uc *UserController) GetUser(c *gin.Context) {
 	id, err := parseID(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, Response{Message: "Invalid user ID"})
+		c.JSON(http.StatusBadRequest, Response{Message: "Id không hợp lệ"})
 		return
 	}
 
 	user, err := uc.userService.GetUserByID(id)
 	if err != nil {
 		if errors.Is(err, repositories.ErrNotFound) { // Use repositories.ErrNotFound
-			c.JSON(http.StatusNotFound, Response{Message: "User not found"})
+			c.JSON(http.StatusNotFound, Response{Message: "Không tìm thấy người dùng"})
 		} else {
 			c.JSON(http.StatusInternalServerError, Response{Message: "Failed to fetch user"})
 		}

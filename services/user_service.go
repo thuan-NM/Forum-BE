@@ -128,39 +128,11 @@ func (s *userService) CreateUser(username, email, password, fullname string, isV
 }
 
 func (s *userService) GetUserByID(id uint) (*models.User, error) {
-	if s.redisClient != nil {
-		cacheKey := fmt.Sprintf("user:%d", id)
-		cached, err := s.redisClient.Get(context.Background(), cacheKey).Result()
-		if err == nil {
-			var user models.User
-			if err := json.Unmarshal([]byte(cached), &user); err == nil {
-				slog.Info("Cache hit for user", "id", id)
-				return &user, nil
-			}
-		} else if err != redis.Nil {
-			slog.Error("Redis error", "id", id, "error", err)
-		}
-	}
-
 	user, err := s.userRepo.GetUserByID(id)
 	if err != nil {
 		slog.Error("Failed to get user", "id", id, "error", err)
 		return nil, err
 	}
-
-	// Cache the result
-	if s.redisClient != nil && user != nil {
-		userJSON, err := json.Marshal(user)
-		if err != nil {
-			slog.Error("Failed to marshal user for caching", "id", user.ID, "error", err)
-		} else {
-			cacheKey := fmt.Sprintf("user:%d", id)
-			if err := s.redisClient.Set(context.Background(), cacheKey, userJSON, 24*time.Hour).Err(); err != nil {
-				slog.Error("Failed to cache user", "cache_key", cacheKey, "error", err)
-			}
-		}
-	}
-
 	return user, nil
 }
 
