@@ -40,7 +40,7 @@ func (ac *AuthController) Register(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Registration successful",
+		"message": "Đăng ký thành công",
 		"user":    responses.ToUserResponse(user),
 	})
 }
@@ -63,7 +63,7 @@ func (ac *AuthController) Login(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Login successful",
+		"message": "Đăng nhập thành công",
 		"token":   token,
 		"user":    responses.ToUserResponse(user),
 	})
@@ -72,7 +72,7 @@ func (ac *AuthController) Login(c *gin.Context) {
 func (ac *AuthController) Logout(c *gin.Context) {
 	authHeader := c.GetHeader("Authorization")
 	if authHeader == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header missing"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Chưa được xác thực"})
 		c.Abort()
 		return
 	}
@@ -80,31 +80,31 @@ func (ac *AuthController) Logout(c *gin.Context) {
 	tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 	claims, err := utils.ParseJWT(tokenString, config.LoadConfig().JWTSecret)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Token không hợp lệ"})
 		return
 	}
 
 	userID := claims.UserID
 
 	if err := ac.authService.Logout(userID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to logout"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Đăng xuất thất bại"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Logout successful"})
+	c.JSON(http.StatusOK, gin.H{"message": "Đăng xuất thành công"})
 }
 
 func (ac *AuthController) ResetToken(c *gin.Context) {
 	authHeader := c.GetHeader("Authorization")
 	if authHeader == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header missing"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Chưa được xác thực"})
 		return
 	}
 
 	tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 	claims, err := utils.ParseJWT(tokenString, config.LoadConfig().JWTSecret)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Token không hợp lệ"})
 		return
 	}
 
@@ -112,7 +112,7 @@ func (ac *AuthController) ResetToken(c *gin.Context) {
 
 	newToken, err := ac.authService.ResetToken(userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to reset token"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể reset token"})
 		return
 	}
 
@@ -121,7 +121,7 @@ func (ac *AuthController) ResetToken(c *gin.Context) {
 func (ac *AuthController) VerifyEmail(c *gin.Context) {
 	token := c.Query("token")
 	if token == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing verification token"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Thiếu token xác thực"})
 		return
 	}
 	log.Printf(token)
@@ -131,7 +131,7 @@ func (ac *AuthController) VerifyEmail(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Email verified successfully. You can now log in."})
+	c.JSON(http.StatusOK, gin.H{"message": "Xác thực email thành công, bạn có thể đăng nhập ngay."})
 }
 func (ac *AuthController) ResendVerificationEmail(c *gin.Context) {
 	var req struct {
@@ -139,7 +139,7 @@ func (ac *AuthController) ResendVerificationEmail(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid email"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Email không hợp lệ"})
 		return
 	}
 
@@ -149,7 +149,7 @@ func (ac *AuthController) ResendVerificationEmail(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Verification email resent successfully"})
+	c.JSON(http.StatusOK, gin.H{"message": "Gửi lại email xác thực thành công"})
 }
 func (ac *AuthController) GoogleLoginWithToken(c *gin.Context) {
 	var req struct {
@@ -167,7 +167,7 @@ func (ac *AuthController) GoogleLoginWithToken(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Google login successful",
+		"message": "Đăng nhập Google thành công",
 		"token":   token,
 		"user":    responses.ToUserResponse(user),
 	})
@@ -177,7 +177,7 @@ func (ac *AuthController) GoogleLoginWithToken(c *gin.Context) {
 func (ac *AuthController) GetUser(c *gin.Context) {
 	authHeader := c.GetHeader("Authorization")
 	if authHeader == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Missing Authorization header"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Chưa xác thực"})
 		return
 	}
 
@@ -193,7 +193,7 @@ func (ac *AuthController) GetUser(c *gin.Context) {
 func (ac *AuthController) ChangePassWord(c *gin.Context) {
 	authHeader := c.GetHeader("Authorization")
 	if authHeader == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Missing Authorization header"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Chưa xác thực"})
 		return
 	}
 
@@ -210,18 +210,18 @@ func (ac *AuthController) ChangePassWord(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid password input: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Mật khẩu không hợp lệ: " + err.Error()})
 		return
 	}
 
 	updatedUser, err := ac.authService.ChangePassword(user.ID, req.OldPassword, req.NewPassword)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to change password: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Đổi mật khẩu thất bại: " + err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Password changed successfully",
+		"message": "Đổi mật khẩu thành công",
 		"user":    responses.ToUserResponse(updatedUser),
 	})
 }

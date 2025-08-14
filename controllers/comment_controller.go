@@ -27,7 +27,7 @@ func (cc *CommentController) CreateComment(c *gin.Context) {
 		Status   string `json:"status"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Yêu cầu không hợp lệ: " + err.Error()})
 		return
 	}
 	userID := c.GetUint("user_id")
@@ -38,7 +38,7 @@ func (cc *CommentController) CreateComment(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Comment created successfully",
+		"message": "Thêm bình luận thành công",
 		"comment": responses.ToCommentResponse(comment),
 	})
 }
@@ -46,13 +46,13 @@ func (cc *CommentController) CreateComment(c *gin.Context) {
 func (cc *CommentController) GetComment(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid comment id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID bình luận không hợp lệ"})
 		return
 	}
 
 	comment, err := cc.commentService.GetCommentByID(uint(id))
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "comment not found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "Không tìm thấy bình luận"})
 		return
 	}
 
@@ -64,7 +64,7 @@ func (cc *CommentController) GetComment(c *gin.Context) {
 func (cc *CommentController) EditComment(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid comment id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID bình luận không hợp lệ"})
 		return
 	}
 
@@ -73,7 +73,7 @@ func (cc *CommentController) EditComment(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Yêu cầu không hợp lệ: " + err.Error()})
 		return
 	}
 
@@ -84,7 +84,7 @@ func (cc *CommentController) EditComment(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Comment updated successfully",
+		"message": "Cập nhật bình luận thành công",
 		"comment": responses.ToCommentResponse(comment),
 	})
 }
@@ -92,7 +92,7 @@ func (cc *CommentController) EditComment(c *gin.Context) {
 func (cc *CommentController) DeleteComment(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid comment id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID bình luận không hợp lệ"})
 		return
 	}
 
@@ -102,7 +102,7 @@ func (cc *CommentController) DeleteComment(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Comment deleted successfully",
+		"message": "Xoá bình luận thành công",
 	})
 }
 
@@ -168,7 +168,7 @@ func (cc *CommentController) ListReplies(c *gin.Context) {
 
 	parentID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid comment id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID bình luận không hợp lệ"})
 		return
 	}
 	if page := c.Query("page"); page != "" {
@@ -247,7 +247,7 @@ func (cc *CommentController) UpdateStatus(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid comment id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID bình luận không hợp lệ"})
 	}
 	var req struct {
 		Status string `json:"status" binding:"required"`
@@ -265,7 +265,7 @@ func (cc *CommentController) UpdateStatus(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Comment updated successfully",
+		"message": "Cập nhật bình luận thành công",
 		"comment": responses.ToCommentResponse(comment),
 	})
 }

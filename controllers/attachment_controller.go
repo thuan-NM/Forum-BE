@@ -20,7 +20,7 @@ func NewAttachmentController(as services.AttachmentService) *AttachmentControlle
 func (ac *AttachmentController) UploadAttachment(c *gin.Context) {
 	file, err := c.FormFile("file")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "File is required"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bắt buộc phải có tệp"})
 		return
 	}
 
@@ -33,7 +33,7 @@ func (ac *AttachmentController) UploadAttachment(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message":    "File uploaded successfully",
+		"message":    "Tải tệp lên thành công",
 		"attachment": responses.ToAttachmentResponse(attachment),
 	})
 }
@@ -42,13 +42,13 @@ func (ac *AttachmentController) GetAttachment(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid attachment id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID tệp đính kèm không hợp lệ"})
 		return
 	}
 
 	attachment, err := ac.attachmentService.GetAttachmentByID(uint(id))
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Attachment not found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "Không tìm thấy tệp đính kèm"})
 		return
 	}
 
@@ -61,7 +61,7 @@ func (ac *AttachmentController) UpdateAttachment(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid attachment id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID tệp đính kèm không hợp lệ"})
 		return
 	}
 
@@ -81,7 +81,7 @@ func (ac *AttachmentController) UpdateAttachment(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message":    "Attachment updated successfully",
+		"message":    "Cập nhật tệp đính kèm thành công",
 		"attachment": responses.ToAttachmentResponse(attachment),
 	})
 }
@@ -90,18 +90,18 @@ func (ac *AttachmentController) DeleteAttachment(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid attachment id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID tệp đính kèm không hợp lệ"})
 		return
 	}
 
 	userID := c.GetUint("user_id")
 	attachment, err := ac.attachmentService.GetAttachmentByID(uint(id))
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Attachment not found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "Không tìm thấy tệp đính kèm"})
 		return
 	}
 	if attachment.UserID != userID {
-		c.JSON(http.StatusForbidden, gin.H{"error": "You do not own this attachment"})
+		c.JSON(http.StatusForbidden, gin.H{"error": "Bạn không phải chủ sở hữu của tệp đính kèm này"})
 		return
 	}
 
@@ -111,7 +111,7 @@ func (ac *AttachmentController) DeleteAttachment(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Attachment deleted successfully",
+		"message": "Xoá tệp đính kèm thành công",
 	})
 }
 
@@ -152,7 +152,7 @@ func (ac *AttachmentController) ListAttachments(c *gin.Context) {
 
 	attachments, total, err := ac.attachmentService.ListAttachments(filters)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list attachments"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể liệt kê tệp đính kèm"})
 		return
 	}
 

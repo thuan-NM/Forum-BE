@@ -34,7 +34,7 @@ func (tc *TagController) CreateTag(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Tag created successfully",
+		"message": "Tạo nhãn thành công",
 		"tag":     responses.ToTagResponse(tag),
 	})
 }
@@ -43,13 +43,13 @@ func (tc *TagController) GetTag(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid tag id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID nhãn không hợp lệ"})
 		return
 	}
 
 	tag, err := tc.tagService.GetTagByID(uint(id))
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "tag not found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "Không tìm thấy nhãn"})
 		return
 	}
 
@@ -62,7 +62,7 @@ func (tc *TagController) EditTag(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid tag id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID nhãn không hợp lệ"})
 		return
 	}
 
@@ -83,7 +83,7 @@ func (tc *TagController) EditTag(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Tag updated successfully",
+		"message": "Cập nhật nhãn thành công",
 		"tag":     responses.ToTagResponse(tag),
 	})
 }
@@ -92,7 +92,7 @@ func (tc *TagController) DeleteTag(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid tag id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID nhãn không hợp lệ"})
 		return
 	}
 
@@ -102,7 +102,7 @@ func (tc *TagController) DeleteTag(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Tag deleted successfully",
+		"message": "Xoá nhãn thành công",
 	})
 }
 
@@ -125,7 +125,7 @@ func (tc *TagController) ListTags(c *gin.Context) {
 
 	tags, total, err := tc.tagService.ListTags(filters)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list tags"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể liệt kê các nhãn"})
 		return
 	}
 
@@ -144,13 +144,13 @@ func (tc *TagController) GetTagsByPostID(c *gin.Context) {
 	postIDParam := c.Param("post_id")
 	postID, err := strconv.ParseUint(postIDParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid post id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID bài đăng không hợp lệ"})
 		return
 	}
 
 	tags, err := tc.tagService.GetTagsByPostID(uint(postID))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get tags for post"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể lấy nhãn hoặc bài đăng"})
 		return
 	}
 
@@ -168,13 +168,13 @@ func (tc *TagController) GetTagsByAnswerID(c *gin.Context) {
 	answerIDParam := c.Param("answer_id")
 	answerID, err := strconv.ParseUint(answerIDParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid answer id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID câu trả lời không hợp lệ"})
 		return
 	}
 
 	tags, err := tc.tagService.GetTagsByAnswerID(uint(answerID))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get tags for answer"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể lấy nhãn hoặc câu trả lời"})
 		return
 	}
 

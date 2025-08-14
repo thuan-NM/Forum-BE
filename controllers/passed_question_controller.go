@@ -19,7 +19,7 @@ func (pc *PassController) PassQuestion(c *gin.Context) {
 	questionIDParam := c.Param("id")
 	questionID, err := strconv.ParseUint(questionIDParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid question id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID câu hỏi không hợp lệ"})
 		return
 	}
 
@@ -27,11 +27,11 @@ func (pc *PassController) PassQuestion(c *gin.Context) {
 
 	err = pc.passService.PassQuestion(userID, uint(questionID))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not pass question"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể bỏ qua câu hỏi"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Question passed successfully"})
+	c.JSON(http.StatusOK, gin.H{"message": "Bỏ qua câu hỏi thành công"})
 }
 
 func (pc *PassController) GetPassedQuestionIDs(c *gin.Context) {
@@ -39,7 +39,7 @@ func (pc *PassController) GetPassedQuestionIDs(c *gin.Context) {
 
 	ids, err := pc.passService.GetPassedIDs(userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not get passed questions"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể lấy danh sách câu hỏi đã bỏ qua"})
 		return
 	}
 

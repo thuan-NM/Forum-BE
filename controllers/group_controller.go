@@ -35,7 +35,7 @@ func (gc *GroupController) CreateGroup(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Group created successfully",
+		"message": "Tạo nhóm thành công",
 		"group":   responses.ToGroupResponse(group),
 	})
 }
@@ -45,13 +45,13 @@ func (gc *GroupController) GetGroup(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid group id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID nhóm không hợp lệ"})
 		return
 	}
 
 	group, err := gc.groupService.GetGroupByID(uint(id))
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "group not found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "Không tìm thấy nhóm"})
 		return
 	}
 
@@ -65,7 +65,7 @@ func (gc *GroupController) EditGroup(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid group id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID nhóm không hợp lệ"})
 		return
 	}
 
@@ -86,7 +86,7 @@ func (gc *GroupController) EditGroup(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Group updated successfully",
+		"message": "Cập nhật nhóm thành công",
 		"group":   responses.ToGroupResponse(group),
 	})
 }
@@ -96,7 +96,7 @@ func (gc *GroupController) DeleteGroup(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid group id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID nhóm không hợp lệ"})
 		return
 	}
 
@@ -106,7 +106,7 @@ func (gc *GroupController) DeleteGroup(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Group deleted successfully",
+		"message": "Xoá nhóm thành công",
 	})
 }
 
@@ -114,7 +114,7 @@ func (gc *GroupController) DeleteGroup(c *gin.Context) {
 func (gc *GroupController) ListGroups(c *gin.Context) {
 	groups, err := gc.groupService.ListGroups()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list groups"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể liệt kê danh sách nhóm"})
 		return
 	}
 
