@@ -25,7 +25,7 @@ func (ac *ActivityController) GetRecentActivities(c *gin.Context) {
 
 	activities, err := ac.activityService.GetRecentActivities(limit)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch recent activities"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Có lỗi khi tải các hoạt động gần đây"})
 		return
 	}
 

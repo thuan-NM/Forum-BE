@@ -1,14 +1,17 @@
 package controllers
 
 import (
+	"errors"
+	"fmt"
+	"net/http"
+	"strconv"
+
+	"github.com/gin-gonic/gin"
+
 	"Forum_BE/repositories" // Add this import
 	"Forum_BE/responses"
 	"Forum_BE/services"
-	"errors"
-	"fmt"
-	"github.com/gin-gonic/gin"
-	"net/http"
-	"strconv"
+
 )
 
 type Response struct {
@@ -46,14 +49,14 @@ func (uc *UserController) CreateUser(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, Response{
 		Message: "Tạo người dùng thành công",
-		Data:    responses.ToUserResponse(user),
+		Data:   responses.ToUserResponse(user),
 	})
 }
 
 func (uc *UserController) GetUser(c *gin.Context) {
 	id, err := parseID(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, Response{Message: "Id không hợp lệ"})
+		c.JSON(http.StatusBadRequest, Response{Message: "ID người dùng không hợp lệ"})
 		return
 	}
 
@@ -62,7 +65,7 @@ func (uc *UserController) GetUser(c *gin.Context) {
 		if errors.Is(err, repositories.ErrNotFound) { // Use repositories.ErrNotFound
 			c.JSON(http.StatusNotFound, Response{Message: "Không tìm thấy người dùng"})
 		} else {
-			c.JSON(http.StatusInternalServerError, Response{Message: "Failed to fetch user"})
+			c.JSON(http.StatusInternalServerError, Response{Message: "Không thể lấy dữ liệu người dùng"})
 		}
 		return
 	}
@@ -125,20 +128,20 @@ func (uc *UserController) UpdateUser(c *gin.Context) {
 func (uc *UserController) DeleteUser(c *gin.Context) {
 	id, err := parseID(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, Response{Message: "Invalid user ID"})
+		c.JSON(http.StatusBadRequest, Response{Message: "ID người dùng không hợp lệ"})
 		return
 	}
 
 	if err := uc.userService.DeleteUser(id); err != nil {
 		if errors.Is(err, repositories.ErrNotFound) { // Use repositories.ErrNotFound
-			c.JSON(http.StatusNotFound, Response{Message: "User not found"})
+			c.JSON(http.StatusNotFound, Response{Message: "Không tìm thấy người dùng"})
 		} else {
-			c.JSON(http.StatusInternalServerError, Response{Message: "Failed to delete user"})
+			c.JSON(http.StatusInternalServerError, Response{Message: "Xoá người dùng thất bại"})
 		}
 		return
 	}
 
-	c.JSON(http.StatusOK, Response{Message: "User deleted successfully"})
+	c.JSON(http.StatusOK, Response{Message: "Xoá người dùng thành công"})
 }
 
 func (uc *UserController) GetAllUsers(c *gin.Context) {
@@ -158,7 +161,7 @@ func (uc *UserController) GetAllUsers(c *gin.Context) {
 	}
 	users, total, err := uc.userService.GetAllUsers(filters)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, Response{Message: "Failed to get all users"})
+		c.JSON(http.StatusInternalServerError, Response{Message: "Không thể liêt kê tất cả người dùng"})
 		return
 	}
 
@@ -175,7 +178,7 @@ func (uc *UserController) GetAllUsers(c *gin.Context) {
 func (uc *UserController) ModifyUserStatus(c *gin.Context) {
 	id, err := parseID(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, Response{Message: "Invalid user ID"})
+		c.JSON(http.StatusBadRequest, Response{Message: "ID người dùng không hợp lệ"})
 		return
 	}
 
@@ -191,7 +194,7 @@ func (uc *UserController) ModifyUserStatus(c *gin.Context) {
 	user, err := uc.userService.ModifyUserStatus(id, req.Status)
 	if err != nil {
 		if errors.Is(err, repositories.ErrNotFound) { // Use repositories.ErrNotFound
-			c.JSON(http.StatusNotFound, Response{Message: "User not found"})
+			c.JSON(http.StatusNotFound, Response{Message: "Không tìm thấy người dùng"})
 		} else {
 			c.JSON(http.StatusBadRequest, Response{Message: err.Error()})
 		}
@@ -199,7 +202,7 @@ func (uc *UserController) ModifyUserStatus(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, Response{
-		Message: "User status updated successfully",
+		Message: "Cập nhật trạng thái người dùng thành công",
 		Data:    responses.ToUserResponse(user),
 	})
 }

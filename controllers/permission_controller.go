@@ -36,7 +36,7 @@ func (pc *PermissionController) UpdatePermission(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message":    "Permission updated successfully",
+		"message":    "Cập nhật quyền thành công",
 		"permission": responses.ToPermissionResponse(permission),
 	})
 }
@@ -45,7 +45,7 @@ func (pc *PermissionController) UpdatePermission(c *gin.Context) {
 func (pc *PermissionController) ListPermissions(c *gin.Context) {
 	permissions, err := pc.permissionService.ListPermissions()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list permissions"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể liệt kê các quyền"})
 		return
 	}
 
