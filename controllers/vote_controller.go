@@ -40,12 +40,12 @@ func (vc *VoteController) CastVote(c *gin.Context) {
 	// Lấy số lượng vote sau khi cast
 	voteCount, err := vc.voteService.GetVoteCount(req.VotableType, req.VotableID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get vote count"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể lấy dữ liệu số lượng bình chọn"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message":    "Vote casted successfully",
+		"message":    "Bình chọn thành công",
 		"vote":       responses.ToVoteResponse(vote),
 		"vote_count": voteCount,
 	})
@@ -56,13 +56,13 @@ func (vc *VoteController) GetVote(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid vote id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID bình chọn không hợp lệ"})
 		return
 	}
 
 	vote, err := vc.voteService.GetVoteByID(uint(id))
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "vote not found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "Không tìm thấy bình chọn"})
 		return
 	}
 
@@ -76,7 +76,7 @@ func (vc *VoteController) UpdateVote(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid vote id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID bình chọn không hợp lệ"})
 		return
 	}
 
@@ -98,12 +98,12 @@ func (vc *VoteController) UpdateVote(c *gin.Context) {
 	// Lấy số lượng vote sau khi cập nhật
 	voteCount, err := vc.voteService.GetVoteCount(vote.VotableType, vote.VotableID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get vote count"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể lấy dữ liệu số lượng bình chọn"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message":    "Vote updated successfully",
+		"message":    "Cập nhật bình chọn thành công",
 		"vote":       responses.ToVoteResponse(vote),
 		"vote_count": voteCount,
 	})
@@ -114,7 +114,7 @@ func (vc *VoteController) DeleteVote(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid vote id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID bình chọn không hợp lệ"})
 		return
 	}
 
@@ -124,7 +124,7 @@ func (vc *VoteController) DeleteVote(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Vote deleted successfully",
+		"message": "Xoá bình luận thành công",
 	})
 }
 
@@ -132,7 +132,7 @@ func (vc *VoteController) DeleteVote(c *gin.Context) {
 func (vc *VoteController) ListVotes(c *gin.Context) {
 	votes, err := vc.voteService.ListVotes()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list votes"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể liệt kê các bình chọn"})
 		return
 	}
 

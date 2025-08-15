@@ -21,7 +21,7 @@ func (fc *FollowController) FollowTopic(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid topic id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID chủ đề không hợp lệ"})
 		return
 	}
 
@@ -30,7 +30,7 @@ func (fc *FollowController) FollowTopic(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Followed topic successfully"})
+	c.JSON(http.StatusOK, gin.H{"message": "Theo dõi chủ đề thành công"})
 }
 
 func (fc *FollowController) UnfollowTopic(c *gin.Context) {
@@ -38,7 +38,7 @@ func (fc *FollowController) UnfollowTopic(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid topic id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID chủ đề không hợp lệ"})
 		return
 	}
 
@@ -47,7 +47,7 @@ func (fc *FollowController) UnfollowTopic(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Unfollowed topic successfully"})
+	c.JSON(http.StatusOK, gin.H{"message": "Huỷ theo dõi chủ đề thành công"})
 }
 
 func (fc *FollowController) FollowQuestion(c *gin.Context) {
@@ -55,7 +55,7 @@ func (fc *FollowController) FollowQuestion(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid question id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID câu hỏi không hợp lệ"})
 		return
 	}
 
@@ -64,7 +64,7 @@ func (fc *FollowController) FollowQuestion(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Followed question successfully"})
+	c.JSON(http.StatusOK, gin.H{"message": "Theo dõi chủ đề thành công"})
 }
 
 func (fc *FollowController) UnfollowQuestion(c *gin.Context) {
@@ -72,7 +72,7 @@ func (fc *FollowController) UnfollowQuestion(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid question id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID câu hỏi không hợp lệ"})
 		return
 	}
 
@@ -81,7 +81,7 @@ func (fc *FollowController) UnfollowQuestion(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Unfollowed question successfully"})
+	c.JSON(http.StatusOK, gin.H{"message": "Huỷ theo dõi chủ đề thành công"})
 }
 
 func (fc *FollowController) GetQuestionFollowStatus(c *gin.Context) {
@@ -89,7 +89,7 @@ func (fc *FollowController) GetQuestionFollowStatus(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid question id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID câu hỏi không hợp lệ"})
 		return
 	}
 
@@ -101,7 +101,7 @@ func (fc *FollowController) GetQuestionFollowStatus(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"isFollowing": isFollowing,
-		"message":     "Follow status retrieved successfully",
+		"message":     "Khôi phục trạng thái theo dõi thành công",
 	})
 }
 
@@ -110,7 +110,7 @@ func (fc *FollowController) GetTopicFollowStatus(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid topic id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID chủ đề không hợp lệ"})
 		return
 	}
 
@@ -122,7 +122,7 @@ func (fc *FollowController) GetTopicFollowStatus(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"isFollowing": isFollowing,
-		"message":     "Follow status retrieved successfully",
+		"message":     "Khôi phục trạng thái theo dõi thành công",
 	})
 }
 
@@ -131,7 +131,7 @@ func (fc *FollowController) GetUserFollowStatus(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID người dùng không hợp lệ"})
 		return
 	}
 
@@ -143,7 +143,7 @@ func (fc *FollowController) GetUserFollowStatus(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"isFollowing": isFollowing,
-		"message":     "Follow status retrieved successfully",
+		"message":     "Khôi phục trạng thái theo dõi thành công",
 	})
 }
 
@@ -152,7 +152,7 @@ func (fc *FollowController) FollowUser(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID người dùng không hợp lệ"})
 		return
 	}
 
@@ -161,7 +161,7 @@ func (fc *FollowController) FollowUser(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Followed user successfully"})
+	c.JSON(http.StatusOK, gin.H{"message": "Theo dõi người dùng thành công"})
 }
 
 func (fc *FollowController) UnfollowUser(c *gin.Context) {
@@ -169,7 +169,7 @@ func (fc *FollowController) UnfollowUser(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID người dùng không hợp lệ"})
 		return
 	}
 
@@ -178,14 +178,14 @@ func (fc *FollowController) UnfollowUser(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Unfollowed user successfully"})
+	c.JSON(http.StatusOK, gin.H{"message": "Huỷ theo dõi người dùng thành công"})
 }
 
 func (fc *FollowController) GetTopicFollows(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid topic id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID chủ đề không hợp lệ"})
 		return
 	}
 
@@ -202,7 +202,7 @@ func (fc *FollowController) GetQuestionFollows(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid question id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID câu hỏi không hợp lệ"})
 		return
 	}
 
@@ -219,7 +219,7 @@ func (fc *FollowController) GetUserFollows(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID người dùng không hợp lệ"})
 		return
 	}
 

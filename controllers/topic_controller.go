@@ -41,7 +41,7 @@ func (tc *TopicController) CreateTopic(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Topic created successfully",
+		"message": "Tạo chủ đề thành công",
 		"topic":   responses.ToTopicResponse(topic),
 	})
 }
@@ -66,7 +66,7 @@ func (tc *TopicController) ProposeTopic(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Topic proposed successfully, pending approval",
+		"message": "Đề xuất chủ đề thành công, đang chờ duyệt",
 		"topic":   responses.ToTopicResponse(topic),
 	})
 }
@@ -75,13 +75,13 @@ func (tc *TopicController) GetTopic(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid topic id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID chủ đề không hợp lệ"})
 		return
 	}
 
 	topic, err := tc.topicService.GetTopicByID(uint(id))
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "topic not found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "Không tìm  thấy chủ đề"})
 		return
 	}
 
@@ -94,7 +94,7 @@ func (tc *TopicController) UpdateTopic(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid topic id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID chủ đề không hợp lệ"})
 		return
 	}
 
@@ -115,7 +115,7 @@ func (tc *TopicController) UpdateTopic(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Topic updated successfully",
+		"message": "Cập nhật chủ đề thành công",
 		"topic":   responses.ToTopicResponse(topic),
 	})
 }
@@ -124,7 +124,7 @@ func (tc *TopicController) DeleteTopic(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid topic id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID chủ đề không hợp lệ"})
 		return
 	}
 
@@ -134,7 +134,7 @@ func (tc *TopicController) DeleteTopic(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Topic deleted successfully",
+		"message": "Xoá chủ đề thành công",
 	})
 }
 
@@ -169,7 +169,7 @@ func (tc *TopicController) ListTopics(c *gin.Context) {
 
 	topics, total, err := tc.topicService.ListTopics(filters)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list topics"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể liệt kê các chủ đề"})
 		return
 	}
 
@@ -188,14 +188,14 @@ func (tc *TopicController) AddQuestionToTopic(c *gin.Context) {
 	questionIDParam := c.Param("question_id")
 	questionID, err := strconv.ParseUint(questionIDParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid question id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID câu hỏi không hợp lệ"})
 		return
 	}
 
 	topicIDParam := c.Param("topic_id")
 	topicID, err := strconv.ParseUint(topicIDParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid topic id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID chủ đề không hợp lệ"})
 		return
 	}
 
@@ -213,14 +213,14 @@ func (tc *TopicController) RemoveQuestionFromTopic(c *gin.Context) {
 	questionIDParam := c.Param("question_id")
 	questionID, err := strconv.ParseUint(questionIDParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid question id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID câu hỏi không hợp lệ"})
 		return
 	}
 
 	topicIDParam := c.Param("topic_id")
 	topicID, err := strconv.ParseUint(topicIDParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid topic id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID chủ đề không hợp lệ"})
 		return
 	}
 
@@ -230,6 +230,6 @@ func (tc *TopicController) RemoveQuestionFromTopic(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Question removed from topic successfully",
+		"message": "Xoá câu hỏi khỏi chủ đề thành công",
 	})
 }

@@ -23,7 +23,7 @@ func (rc *ReactionController) CreateReaction(c *gin.Context) {
 		AnswerID  *uint `json:"answer_id"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Yêu cầu không hợp lệ: " + err.Error()})
 		return
 	}
 	userID := c.GetUint("user_id")
@@ -33,7 +33,7 @@ func (rc *ReactionController) CreateReaction(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"message":  "Reaction created successfully",
+		"message":  "Tương tác thành công",
 		"reaction": responses.ToReactionResponse(reaction),
 	})
 }
@@ -41,12 +41,12 @@ func (rc *ReactionController) CreateReaction(c *gin.Context) {
 func (rc *ReactionController) GetReactionByID(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid reaction id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID tương tác không hợp lệ"})
 		return
 	}
 	reaction, err := rc.reactionService.GetReactionByID(uint(id))
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "reaction not found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "Không tìm thấy tương tác"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
@@ -57,7 +57,7 @@ func (rc *ReactionController) GetReactionByID(c *gin.Context) {
 func (rc *ReactionController) UpdateReaction(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid reaction id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID tương tác không hợp lệ"})
 		return
 	}
 	var req struct {
@@ -66,7 +66,7 @@ func (rc *ReactionController) UpdateReaction(c *gin.Context) {
 		AnswerID  *uint `json:"answer_id"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Yêu cầu không hợp lệ: " + err.Error()})
 		return
 	}
 	userID := c.GetUint("user_id")
@@ -76,7 +76,7 @@ func (rc *ReactionController) UpdateReaction(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"message":  "Reaction updated successfully",
+		"message":  "Cập nhật tương tác thành công",
 		"reaction": responses.ToReactionResponse(reaction),
 	})
 }
@@ -84,7 +84,7 @@ func (rc *ReactionController) UpdateReaction(c *gin.Context) {
 func (rc *ReactionController) DeleteReaction(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid reaction id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID tương tác không hợp lệ"})
 		return
 	}
 	userID := c.GetUint("user_id")
@@ -93,7 +93,7 @@ func (rc *ReactionController) DeleteReaction(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Reaction deleted successfully",
+		"message": "Xoá tương tác thành công",
 	})
 }
 
@@ -182,7 +182,7 @@ func (rc *ReactionController) CheckUserReaction(c *gin.Context) {
 			postID = new(uint)
 			*postID = uint(id)
 		} else {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid post_id"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "post_id không hợp lệ"})
 			return
 		}
 	}
@@ -191,7 +191,7 @@ func (rc *ReactionController) CheckUserReaction(c *gin.Context) {
 			commentID = new(uint)
 			*commentID = uint(id)
 		} else {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid comment_id"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "comment_id không hợp lệ"})
 			return
 		}
 	}
@@ -200,7 +200,7 @@ func (rc *ReactionController) CheckUserReaction(c *gin.Context) {
 			answerID = new(uint)
 			*answerID = uint(id)
 		} else {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid answer_id"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "answer_id không hợp lệ"})
 			return
 		}
 	}
@@ -226,7 +226,7 @@ func (rc *ReactionController) GetReactionStatus(c *gin.Context) {
 			postID = new(uint)
 			*postID = uint(id)
 		} else {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid post_id"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "post_id không hợp lệ"})
 			return
 		}
 	}
@@ -235,7 +235,7 @@ func (rc *ReactionController) GetReactionStatus(c *gin.Context) {
 			commentID = new(uint)
 			*commentID = uint(id)
 		} else {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid comment_id"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "comment_id không hợp lệ"})
 			return
 		}
 	}
@@ -244,7 +244,7 @@ func (rc *ReactionController) GetReactionStatus(c *gin.Context) {
 			answerID = new(uint)
 			*answerID = uint(id)
 		} else {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid answer_id"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "answer_id không hợp lệ"})
 			return
 		}
 	}

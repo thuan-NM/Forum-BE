@@ -41,7 +41,7 @@ func (ac *AnswerController) CreateAnswer(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Answer created successfully",
+		"message": "Thêm câu trả lời thành công",
 		"answer":  responses.ToAnswerResponse(answer),
 	})
 }
@@ -50,13 +50,13 @@ func (ac *AnswerController) GetAnswer(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid answer id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID câu trả lời không hợp lệ"})
 		return
 	}
 
 	answer, err := ac.answerService.GetAnswerByID(uint(id))
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "answer not found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "Không tìm thấy câu trả lời"})
 		return
 	}
 
@@ -69,7 +69,7 @@ func (ac *AnswerController) EditAnswer(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid answer id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "id câu trả lời không hợp lệ"})
 		return
 	}
 
@@ -92,7 +92,7 @@ func (ac *AnswerController) EditAnswer(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Answer updated successfully",
+		"message": "Cập nhật câu trả lời thành công",
 		"answer":  responses.ToAnswerResponse(answer),
 	})
 }
@@ -101,7 +101,7 @@ func (ac *AnswerController) DeleteAnswer(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid answer id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "id câu trả lời không hợp lệ"})
 		return
 	}
 
@@ -111,7 +111,7 @@ func (ac *AnswerController) DeleteAnswer(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Answer deleted successfully",
+		"message": "Xoá câu trả lời thành công",
 	})
 }
 
@@ -181,7 +181,7 @@ func (ac *AnswerController) ListAnswers(c *gin.Context) {
 
 	answers, total, err := ac.answerService.ListAnswers(filters)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list answers"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "không thể tải danh sách câu trả lời"})
 		return
 	}
 
@@ -268,7 +268,7 @@ func (ac *AnswerController) UpdateAnswerStatus(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid answer id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID câu trả lời không hợp lệ"})
 		return
 	}
 
@@ -288,7 +288,7 @@ func (ac *AnswerController) UpdateAnswerStatus(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Answer status updated successfully",
+		"message": "Cập nhật trạng thái câu trả lời thành công",
 		"answer":  responses.ToAnswerResponse(answer),
 	})
 }
@@ -310,7 +310,7 @@ func (ac *AnswerController) AcceptAnswer(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Answer accepted successfully",
+		"message": "Chấp nhạn câu trả lời thành công",
 		"answer":  responses.ToAnswerResponse(answer),
 	})
 }

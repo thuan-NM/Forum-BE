@@ -29,7 +29,7 @@ func NewFileController(fileService services.FileService, cld *cloudinary.Cloudin
 func (fc *FileController) CreateFile(c *gin.Context) {
 	file, err := c.FormFile("file")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "file is required"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bắt buộc phải có tệp"})
 		return
 	}
 
@@ -41,7 +41,7 @@ func (fc *FileController) CreateFile(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "File uploaded successfully",
+		"message": "Tải tệp lên thành công",
 		"file":    responses.ToFileResponse(attachment),
 	})
 }
@@ -49,13 +49,13 @@ func (fc *FileController) CreateFile(c *gin.Context) {
 func (fc *FileController) GetFile(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid file id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID tệp không hợp lệ"})
 		return
 	}
 
 	file, err := fc.fileService.GetFileByID(uint(id))
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "file not found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "Không tìm thấy tệp"})
 		return
 	}
 
@@ -67,7 +67,7 @@ func (fc *FileController) GetFile(c *gin.Context) {
 func (fc *FileController) DeleteFile(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid file id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID tệp không hợp lệ"})
 		return
 	}
 
@@ -77,7 +77,7 @@ func (fc *FileController) DeleteFile(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "File deleted successfully",
+		"message": "Xoá tệp thành công",
 	})
 }
 
@@ -121,13 +121,13 @@ func (fc *FileController) ListFiles(c *gin.Context) {
 func (fc *FileController) DownloadFile(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid file id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID tệp không hợp lệ"})
 		return
 	}
 
 	file, err := fc.fileService.GetFileByID(uint(id))
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "file not found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "Không tìm thấy tệp"})
 		return
 	}
 
@@ -149,7 +149,7 @@ type FileResponse struct {
 func UploadFile(c *gin.Context, db *gorm.DB) {
 	file, err := c.FormFile("file")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "No file uploaded"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Không có tệp được tải lên"})
 		return
 	}
 
@@ -157,7 +157,7 @@ func UploadFile(c *gin.Context, db *gorm.DB) {
 	filename := filepath.Base(file.Filename)
 	filePath := "uploads/" + filename // Adjust to your storage path
 	if err := c.SaveUploadedFile(file, filePath); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Lưu tệp thất bại"})
 		return
 	}
 
@@ -172,13 +172,13 @@ func UploadFile(c *gin.Context, db *gorm.DB) {
 	}
 
 	if err := db.Create(&attachment).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save attachment"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Lưu tệp đính kèm thất bại"})
 		return
 	}
 
 	// Return FileResponse
 	response := FileResponse{
-		Message: "File uploaded successfully",
+		Message: "Tải tệp lên thành công",
 	}
 	response.File.ID = attachment.ID
 	response.File.URL = attachment.URL

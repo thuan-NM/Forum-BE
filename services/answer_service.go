@@ -321,20 +321,42 @@ func (s *answerService) UpdateAnswerStatus(id uint, status string) (*models.Answ
 		return nil, errors.New("invalid status")
 	}
 
+	// Cập nhật status trong DB
 	if err := s.answerRepo.UpdateAnswerStatus(id, status); err != nil {
 		log.Printf("Failed to update answer status %d: %v", id, err)
 		return nil, err
 	}
 
+	// Lấy answer sau khi update
 	answer, err := s.answerRepo.GetAnswerByIDSimple(id)
 	if err != nil {
 		log.Printf("Failed to get updated answer %d: %v", id, err)
 		return nil, err
 	}
 
+	// Invalidate cache
 	s.invalidateCache(fmt.Sprintf("answer:%d", id))
 	s.invalidateCache(fmt.Sprintf("answers:question:%d:*", answer.QuestionID))
-	s.invalidateCache("tags:*") // Thêm invalidation cho tag cache
+	s.invalidateCache("tags:*")
+
+	// Gửi notification cho chủ sở hữu answer dựa trên status
+	answerOwner, err := s.userRepo.GetUserByID(answer.UserID)
+	if err != nil {
+		log.Printf("Không lấy được thông tin chủ sở hữu answer: %v", err)
+	} else {
+		workflowID := "answer-status-updated"
+		var message string
+		switch status {
+		case "approved":
+			message = fmt.Sprintf("Quản trị viên đã duyệt câu trả lời của bạn: %s", answer.Title)
+		case "rejected":
+			message = fmt.Sprintf("Quản trị viên đã từ chối câu trả lời của bạn: %s", answer.Title)
+		}
+
+		if err := s.novuClient.SendNotification(answerOwner.ID, workflowID, message); err != nil {
+			log.Printf("Gửi notification duyệt/reject answer thất bại: %v", err)
+		}
+	}
 
 	return answer, nil
 }
@@ -366,12 +388,31 @@ func (s *answerService) AcceptAnswer(id uint, userID uint) (*models.Answer, erro
 		log.Printf("Failed to accept answer %d: %v", id, err)
 		return nil, err
 	}
-	s.invalidateCache(fmt.Sprintf("question:%d", answer.QuestionID)) // Thêm dòng này
 
+	// Invalidate cache
+	s.invalidateCache(fmt.Sprintf("question:%d", answer.QuestionID))
 	s.invalidateCache(fmt.Sprintf("answer:%d", id))
 	s.invalidateCache(fmt.Sprintf("answers:question:%d:*", answer.QuestionID))
 	s.invalidateCache("questions:*")
-	s.invalidateCache("tags:*") // Thêm invalidation cho tag cache
+	s.invalidateCache("tags:*")
+
+	// Gửi notification cho người trả lời
+	answerOwner, err := s.userRepo.GetUserByID(answer.UserID)
+	if err != nil {
+		log.Printf("Không lấy được thông tin chủ sở hữu answer: %v", err)
+	} else {
+		questionOwner, err := s.userRepo.GetUserByID(question.UserID)
+		if err != nil {
+			log.Printf("Không lấy được thông tin chủ sở hữu câu hỏi: %v", err)
+		} else {
+			workflowID := "answer-accepted"
+			message := fmt.Sprintf("Chủ câu hỏi %s đã đánh dấu câu trả lời của bạn hữu ích", questionOwner.FullName)
+			if err := s.novuClient.SendNotification(answerOwner.ID, workflowID, message); err != nil {
+				log.Printf("Gửi notification accept answer thất bại: %v", err)
+			}
+		}
+	}
+
 	log.Printf("Answer %d accepted successfully for question %d", id, answer.QuestionID)
 	return answer, nil
 }

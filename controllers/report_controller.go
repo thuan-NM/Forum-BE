@@ -41,12 +41,12 @@ func (rc *ReportController) CreateReport(c *gin.Context) {
 
 	resp, err := responses.ToReportResponse(report)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to process report response"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể xử lý phản hồi báo cáo"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Report created successfully",
+		"message": "Báo cáo thành công",
 		"report":  resp,
 	})
 }
@@ -54,19 +54,19 @@ func (rc *ReportController) CreateReport(c *gin.Context) {
 func (rc *ReportController) GetReportById(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid report id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID báo cáo không hợp lệ"})
 		return
 	}
 
 	report, err := rc.reportService.GetReportByID(id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "report not found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "Không tìm thấy báo cáo"})
 		return
 	}
 
 	resp, err := responses.ToReportResponse(report)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to process report response"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể xử lý phản hồi báo cáo"})
 		return
 	}
 
@@ -78,7 +78,7 @@ func (rc *ReportController) GetReportById(c *gin.Context) {
 func (rc *ReportController) DeleteReport(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid report id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID báo cáo không hợp lệ"})
 		return
 	}
 
@@ -87,14 +87,14 @@ func (rc *ReportController) DeleteReport(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Report deleted successfully",
+		"message": "Xoá báo cáo thành công",
 	})
 }
 
 func (rc *ReportController) UpdateReport(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid report id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID báo cáo không hợp lệ"})
 		return
 	}
 
@@ -117,12 +117,12 @@ func (rc *ReportController) UpdateReport(c *gin.Context) {
 
 	resp, err := responses.ToReportResponse(report)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to process report response"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể xử lý phản hồi báo cáo"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Report updated successfully",
+		"message": "Cập nhật báo cáo thành công",
 		"report":  resp,
 	})
 }
@@ -130,7 +130,7 @@ func (rc *ReportController) UpdateReport(c *gin.Context) {
 func (rc *ReportController) UpdateReportStatus(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid report id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID báo cáo không hợp lệ"})
 		return
 	}
 
@@ -145,7 +145,7 @@ func (rc *ReportController) UpdateReportStatus(c *gin.Context) {
 	}
 
 	if !isValidStatus(req.Status) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid status"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Trạng thái không hợp lệ"})
 		return
 	}
 
@@ -157,12 +157,12 @@ func (rc *ReportController) UpdateReportStatus(c *gin.Context) {
 
 	resp, err := responses.ToReportResponse(report)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to process report response"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể xử lý phản hồi báo cáo"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Report status updated successfully",
+		"message": "Cập nhật trạng thái báo cáo thành công",
 		"report":  resp,
 	})
 }
@@ -175,14 +175,14 @@ func (rc *ReportController) ListReports(c *gin.Context) {
 	}
 	if status := c.Query("status"); status != "" {
 		if !isValidStatus(status) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid status"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "trạng thái không hợp lệ"})
 			return
 		}
 		filters["status"] = status
 	}
 	if contentType := c.Query("content_type"); contentType != "" {
 		if !isValidContentType(contentType) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid content type"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Loại nội dung không hợp lệ"})
 			return
 		}
 		filters["content_type"] = contentType
@@ -191,7 +191,7 @@ func (rc *ReportController) ListReports(c *gin.Context) {
 		if id, err := strconv.Atoi(reporterID); err == nil && id > 0 {
 			filters["reporter_id"] = uint(id)
 		} else {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid reporter ID"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "ID người báo cáo không hợp lệ"})
 			return
 		}
 	}
@@ -209,7 +209,7 @@ func (rc *ReportController) ListReports(c *gin.Context) {
 		if isValidSortBy(sortBy) {
 			filters["sort_by"] = sortBy
 		} else {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid sort_by field"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "trường sort_by không hợp lệ"})
 			return
 		}
 	}
@@ -217,14 +217,14 @@ func (rc *ReportController) ListReports(c *gin.Context) {
 		if order == "ASC" || order == "DESC" {
 			filters["order"] = order
 		} else {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid order value"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Thứ tự không hợp lệ"})
 			return
 		}
 	}
 
 	reports, total, err := rc.reportService.ListReports(filters)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list reports"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể liệt kê báo cáo"})
 		return
 	}
 
@@ -232,7 +232,7 @@ func (rc *ReportController) ListReports(c *gin.Context) {
 	for _, report := range reports {
 		resp, err := responses.ToReportResponse(&report)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to process report response"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể xử lý phản hồi báo cáo"})
 			return
 		}
 		response = append(response, resp)
@@ -255,7 +255,7 @@ func (rc *ReportController) BatchDeleteReports(c *gin.Context) {
 	}
 
 	if len(req.IDs) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "no report IDs provided"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Chưa cung cấp ID báo cáo"})
 		return
 	}
 
@@ -265,7 +265,7 @@ func (rc *ReportController) BatchDeleteReports(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Reports deleted successfully",
+		"message": "Xoá báo cáo thành công",
 	})
 }
 

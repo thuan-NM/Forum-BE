@@ -3,6 +3,7 @@ package routes
 import (
 	"Forum_BE/controllers"
 	"Forum_BE/middlewares"
+	"Forum_BE/notification"
 	"Forum_BE/repositories"
 	"Forum_BE/services"
 	"github.com/gin-gonic/gin"
@@ -10,10 +11,11 @@ import (
 	"gorm.io/gorm"
 )
 
-func PostRoutes(db *gorm.DB, authorized *gin.RouterGroup, permService services.PermissionService, redisClient *redis.Client) {
+func PostRoutes(db *gorm.DB, authorized *gin.RouterGroup, permService services.PermissionService, redisClient *redis.Client, novuClient *notification.NovuClient) {
 	// Post routes
 	postRepo := repositories.NewPostRepository(db)
-	postService := services.NewPostService(postRepo, redisClient)
+	userRepo := repositories.NewUserRepository(db)
+	postService := services.NewPostService(postRepo, redisClient, userRepo, novuClient)
 	postController := controllers.NewPostController(postService)
 
 	posts := authorized.Group("/posts")

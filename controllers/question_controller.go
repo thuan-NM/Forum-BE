@@ -322,7 +322,7 @@ func (qc *QuestionController) SuggestQuestions(c *gin.Context) {
 func (qc *QuestionController) SyncQuestionsToRAG(c *gin.Context) {
 	questions, err := qc.questionService.SyncQuestionsToRAG()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to sync to RAG"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể đồng bộ với RAG"})
 		return
 	}
 

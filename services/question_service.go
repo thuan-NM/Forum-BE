@@ -2,6 +2,7 @@ package services
 
 import (
 	"Forum_BE/models"
+	"Forum_BE/notification"
 	"Forum_BE/repositories"
 	"Forum_BE/utils"
 	"bytes"
@@ -31,10 +32,12 @@ type questionService struct {
 	questionRepo repositories.QuestionRepository
 	topicService TopicService
 	redisClient  *redis.Client
+	userRepo     repositories.UserRepository
+	novuClient   *notification.NovuClient
 }
 
-func NewQuestionService(qRepo repositories.QuestionRepository, tService TopicService, redisClient *redis.Client) QuestionService {
-	return &questionService{questionRepo: qRepo, topicService: tService, redisClient: redisClient}
+func NewQuestionService(qRepo repositories.QuestionRepository, tService TopicService, redisClient *redis.Client, uRepo repositories.UserRepository, novuClient *notification.NovuClient) QuestionService {
+	return &questionService{questionRepo: qRepo, topicService: tService, redisClient: redisClient, userRepo: uRepo, novuClient: novuClient}
 }
 
 func (s *questionService) CreateQuestion(title string, description string, userID, topicID uint, status string) (*models.Question, error) {
@@ -262,8 +265,28 @@ func (s *questionService) UpdateQuestionStatus(id uint, status string) (*models.
 		return nil, err
 	}
 
+	// Invalidate cache
 	s.invalidateCache(fmt.Sprintf("question:%d", id))
 	s.invalidateCache("questions:*")
+
+	// Gửi notification cho chủ câu hỏi
+	user, err := s.userRepo.GetUserByID(updatedQuestion.UserID)
+	if err != nil {
+		log.Printf("Không lấy được thông tin chủ câu hỏi: %v", err)
+	} else {
+		workflowID := "question-status-updated"
+		var message string
+		switch status {
+		case string(models.StatusApproved):
+			message = fmt.Sprintf("Quản trị viên đã duyệt câu hỏi của bạn: %s", updatedQuestion.Title)
+		case string(models.StatusRejected):
+			message = fmt.Sprintf("Quản trị viên đã từ chối câu hỏi của bạn: %s", updatedQuestion.Title)
+		}
+
+		if err := s.novuClient.SendNotification(user.ID, workflowID, message); err != nil {
+			log.Printf("Gửi notification update question thất bại: %v", err)
+		}
+	}
 
 	return updatedQuestion, nil
 }

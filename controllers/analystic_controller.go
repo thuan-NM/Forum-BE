@@ -22,7 +22,7 @@ func (dc *DashboardController) GetDashboard(c *gin.Context) {
 
 	data, err := dc.dashService.GetDashboardData(period)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load dashboard data"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể tải dữ liệu bảng điều khiển"})
 		return
 	}
 

@@ -2,6 +2,7 @@ package services
 
 import (
 	"Forum_BE/models"
+	"Forum_BE/notification"
 	"Forum_BE/repositories"
 	"Forum_BE/utils"
 	"context"
@@ -27,10 +28,12 @@ type PostService interface {
 type postService struct {
 	postRepo    repositories.PostRepository
 	redisClient *redis.Client
+	userRepo    repositories.UserRepository
+	novuClient  *notification.NovuClient
 }
 
-func NewPostService(postRepo repositories.PostRepository, redisClient *redis.Client) PostService {
-	return &postService{postRepo: postRepo, redisClient: redisClient}
+func NewPostService(postRepo repositories.PostRepository, redisClient *redis.Client, userRepo repositories.UserRepository, novuClient *notification.NovuClient) PostService {
+	return &postService{postRepo: postRepo, redisClient: redisClient, userRepo: userRepo, novuClient: novuClient}
 }
 
 func (s *postService) CreatePost(content string, userID uint, title string, tagId []uint, status models.PostStatus) (*models.Post, error) {
@@ -191,6 +194,7 @@ func (s *postService) UpdatePostStatus(id uint, status string) (*models.Post, er
 		return nil, errors.New("invalid status")
 	}
 
+	// Cập nhật status trong DB
 	if err := s.postRepo.UpdatePostStatus(id, status); err != nil {
 		log.Printf("Failed to update post status %d: %v", id, err)
 		return nil, err
@@ -202,9 +206,29 @@ func (s *postService) UpdatePostStatus(id uint, status string) (*models.Post, er
 		return nil, err
 	}
 
+	// Invalidate cache
 	s.invalidateCache(fmt.Sprintf("post:%d", id))
 	s.invalidateCache("posts:*")
-	s.invalidateCache("tags:*") // Thêm invalidation cho tag cache
+	s.invalidateCache("tags:*")
+
+	// Gửi notification cho chủ post
+	user, err := s.userRepo.GetUserByID(post.UserID)
+	if err != nil {
+		log.Printf("Không lấy được thông tin chủ post: %v", err)
+	} else {
+		workflowID := "post-status-updated"
+		var message string
+		switch status {
+		case "approved":
+			message = fmt.Sprintf("Quản trị viên đã duyệt bài viết của bạn: %s", post.Title)
+		case "rejected":
+			message = fmt.Sprintf("Quản trị viên đã từ chối bài viết của bạn: %s", post.Title)
+		}
+
+		if err := s.novuClient.SendNotification(user.ID, workflowID, message); err != nil {
+			log.Printf("Gửi notification update post thất bại: %v", err)
+		}
+	}
 
 	return post, nil
 }

@@ -20,7 +20,7 @@ func (c *AdminController) ApproveQuestionHandler(ctx *gin.Context) {
 	idParam := ctx.Param("id")
 	questionID, err := strconv.Atoi(idParam)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid question ID"})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "ID câu hỏi không hợp lệ"})
 		return
 	}
 
@@ -30,7 +30,7 @@ func (c *AdminController) ApproveQuestionHandler(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"message": "Question approved successfully"})
+	ctx.JSON(http.StatusOK, gin.H{"message": "Phê duyệt câu hỏi thành công"})
 }
 
 // RejectQuestionHandler từ chối câu hỏi
@@ -38,7 +38,7 @@ func (c *AdminController) RejectQuestionHandler(ctx *gin.Context) {
 	idParam := ctx.Param("id")
 	questionID, err := strconv.Atoi(idParam)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid question ID"})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "ID câu hỏi không hợp lệ"})
 		return
 	}
 
@@ -48,5 +48,5 @@ func (c *AdminController) RejectQuestionHandler(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"message": "Question rejected successfully"})
+	ctx.JSON(http.StatusOK, gin.H{"message": "Từ chối câu hỏi thành công"})
 }

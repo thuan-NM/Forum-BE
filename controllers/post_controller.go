@@ -40,7 +40,7 @@ func (pc *PostController) CreatePost(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Post created successfully",
+		"message": "Tạo bài đăng thành công",
 		"post":    responses.ToPostResponse(post),
 	})
 }
@@ -49,13 +49,13 @@ func (pc *PostController) GetPostById(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid post id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID bài đăng không hợp lệ"})
 		return
 	}
 
 	post, err := pc.postService.GetPostByID(uint(id))
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "post not found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "Không tìm thấy bài đăng"})
 		return
 	}
 
@@ -68,7 +68,7 @@ func (pc *PostController) DeletePost(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid post id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID bài đăng không hợp lệ"})
 		return
 	}
 
@@ -77,7 +77,7 @@ func (pc *PostController) DeletePost(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Post deleted successfully",
+		"message": "Xoá bài đăng thành công",
 	})
 }
 
@@ -85,7 +85,7 @@ func (pc *PostController) UpdatePost(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid post id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID bài đăng không hợp lệ"})
 		return
 	}
 
@@ -108,7 +108,7 @@ func (pc *PostController) UpdatePost(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Post updated successfully",
+		"message": "Cập nhật bài đăng thành công",
 		"post":    responses.ToPostResponse(post),
 	})
 }
@@ -117,7 +117,7 @@ func (pc *PostController) UpdatePostStatus(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid post id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID bài đăng không hợp lệ"})
 		return
 	}
 
@@ -137,7 +137,7 @@ func (pc *PostController) UpdatePostStatus(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Post status updated successfully",
+		"message": "Cập nhật trạng thái bài đăng thành công",
 		"post":    responses.ToPostResponse(post),
 	})
 }
@@ -175,7 +175,7 @@ func (pc *PostController) ListPosts(c *gin.Context) {
 
 	posts, total, err := pc.postService.ListPosts(filters)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list posts"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể liệt kê các bài đăng"})
 		return
 	}
 
@@ -236,7 +236,7 @@ func (pc *PostController) GetAllPosts(c *gin.Context) {
 
 	posts, total, err := pc.postService.GetAllPosts(filters)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get all posts"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể lấy tất cả bài đăng"})
 		return
 	}
 
