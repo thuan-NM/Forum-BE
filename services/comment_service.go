@@ -404,6 +404,23 @@ func (s *commentService) UpdateCommentStatus(id uint, status string) (*models.Co
 		s.invalidateCache(fmt.Sprintf("replies:comment:%d:*", *comment.ParentID))
 	}
 	s.invalidateCache("comments:all:*")
+	commentOwner, err := s.userRepo.GetUserByID(comment.UserID)
+	if err != nil {
+		log.Printf("Không lấy được thông tin chủ bình luận: %v", err)
+	} else {
+		workflowID := "comment-status-updated"
+		var message string
+		switch status {
+		case "approved":
+			message = fmt.Sprintf("Quản trị viên đã duyệt bình luận của bạn")
+		case "rejected":
+			message = fmt.Sprintf("Quản trị viên đã từ chối bình luận của bạn")
+		}
+
+		if err := s.novuClient.SendNotification(commentOwner.ID, workflowID, message); err != nil {
+			log.Printf("Gửi notification duyệt/reject comment thất bại: %v", err)
+		}
+	}
 	return comment, nil
 }
 

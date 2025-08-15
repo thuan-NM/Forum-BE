@@ -25,7 +25,7 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, jwtSecret string, redisClient *redi
 	questionRepo := repositories.NewQuestionRepository(db)
 	topicRepo := repositories.NewTopicRepository(db)
 	topicSer := services.NewTopicService(topicRepo, redisClient, db)
-	questionSer := services.NewQuestionService(questionRepo, topicSer, redisClient)
+	questionSer := services.NewQuestionService(questionRepo, topicSer, redisClient, userRepo, novuClient)
 	jobs.StartCronJobs(questionSer)
 
 	var permissions []models.Permission
@@ -51,8 +51,8 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, jwtSecret string, redisClient *redi
 	authorized.Use(authMiddleware)
 	{
 		UserRoutes(db, authorized, permService, redisClient)
-		QuestionRoutes(db, authorized, permService, redisClient)
-		PostRoutes(db, authorized, permService, redisClient)
+		QuestionRoutes(db, authorized, permService, redisClient, novuClient)
+		PostRoutes(db, authorized, permService, redisClient, novuClient)
 		AnswerRoutes(db, authorized, permService, redisClient, novuClient)
 		CommentRoutes(db, authorized, permService, redisClient, novuClient)
 		TagRoutes(db, authorized, permService, redisClient)
